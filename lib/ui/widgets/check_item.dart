@@ -59,7 +59,7 @@ class CheckItem extends StatelessWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildIcon(),
+                _buildIcon(isDark),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Column(
@@ -127,7 +127,7 @@ class CheckItem extends StatelessWidget {
 
             Row(
               children: [
-                _buildIcon(),
+                _buildIcon(theme.brightness == Brightness.dark),
                 const SizedBox(width: 16),
                 Expanded(
                   child: Text(
@@ -194,7 +194,7 @@ class CheckItem extends StatelessWidget {
     );
   }
 
-  Widget _buildIcon() {
+  Widget _buildIcon(bool isDark) {
     if (result == null) {
       return Container(
         width: 32,
@@ -226,15 +226,22 @@ class CheckItem extends StatelessWidget {
         break;
     }
 
+    // Adapt colors for light/dark mode
+    // Dark Mode: Keep opacity
+    // Light Mode: Solid color, white icon
+    final bgColor = isDark ? color.withOpacity(0.2) : color;
+    final borderColor = isDark ? color.withOpacity(0.5) : color;
+    final iconColor = isDark ? color : Colors.white;
+
     return Container(
       width: 32,
       height: 32,
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: bgColor,
         shape: BoxShape.circle,
-        border: Border.all(color: color.withOpacity(0.5)),
+        border: Border.all(color: borderColor),
       ),
-      child: Icon(iconData, size: 18, color: color),
+      child: Icon(iconData, size: 18, color: iconColor),
     );
   }
 
