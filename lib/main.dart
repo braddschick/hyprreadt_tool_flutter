@@ -4,13 +4,18 @@ import 'package:google_fonts/google_fonts.dart';
 import 'ui/home_screen.dart';
 
 import 'package:window_manager/window_manager.dart';
+import 'package:screen_retriever/screen_retriever.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await windowManager.ensureInitialized();
 
-  WindowOptions windowOptions = const WindowOptions(
-    size: Size(500, 750),
+  Display primaryDisplay = await screenRetriever.getPrimaryDisplay();
+  double windowHeight =
+      primaryDisplay.visibleSize?.height ?? primaryDisplay.size.height;
+
+  WindowOptions windowOptions = WindowOptions(
+    size: Size(500, windowHeight),
     center: true,
     backgroundColor: Colors.transparent,
     skipTaskbar: false,
