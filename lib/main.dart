@@ -2,13 +2,23 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'ui/home_screen.dart';
+import 'config/app_config.dart';
+import 'headless_runner.dart'; // Import HeadlessRunner
 
 import 'package:window_manager/window_manager.dart';
 import 'package:screen_retriever/screen_retriever.dart';
 
-void main() async {
+void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Check for headless mode
+  if (args.contains('--headless')) {
+    await HeadlessRunner.run(args);
+    return; // Exit after headless run
+  }
+
   await windowManager.ensureInitialized();
+  await AppConfig().init(); // Initialize configuration
 
   Display primaryDisplay = await screenRetriever.getPrimaryDisplay();
   double windowHeight =

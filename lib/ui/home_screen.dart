@@ -9,10 +9,12 @@ import '../checks/hardware.dart';
 import '../checks/network.dart';
 import '../checks/environment.dart';
 import '../checks/certificate.dart';
-// Note: We need to import the new checks
 import '../checks/windows_security.dart';
 
 import '../ui/widgets/check_item.dart';
+
+import '../config/app_config.dart';
+import '../checks/check_registry.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,14 +25,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   // Define checks list inside the State class
-  List<Check> get _checks => [
-    OSVersionCheck(),
-    HardwareCheck(),
-    EnvironmentCheck(),
-    NetworkCheck(),
-    CertificateTemplateCheck(),
-    WindowsSecurityCheck(),
-  ];
+  List<Check> get _checks => CheckRegistry().checks;
 
   // Map to store results by check ID
   final Map<String, CheckResult> _results = {};
@@ -81,6 +76,8 @@ class _HomeScreenState extends State<HomeScreen> {
     buffer.writeln(
       'OS: ${Platform.operatingSystem} ${Platform.operatingSystemVersion}',
     );
+    // Include target URL in report
+    buffer.writeln('Target URL: ${AppConfig().targetUrl}');
     buffer.writeln('--------------------------------------------------');
     buffer.writeln('');
 
@@ -127,6 +124,102 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> _showSettingsDialog() async {
+    final TextEditingController urlController = TextEditingController(
+      text: AppConfig().targetUrl,
+    );
+    final formKey = GlobalKey<FormState>();
+
+    // Determine initial state
+    bool isDefault = urlController.text == 'show.gethypr.com';
+    // If it's default, we might want to clear the text field for UX or keep it disabled with the value.
+    // Let's keep the value so they see what "Default" means, but disable input.
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return AlertDialog(
+              title: const Text('Settings'),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CheckboxListTile(
+                      title: const Text('Use default URL'),
+                      subtitle: const Text('show.gethypr.com'),
+                      value: isDefault,
+                      onChanged: (bool? value) {
+                        setState(() {
+                          isDefault = value ?? true;
+                          if (isDefault) {
+                            urlController.text = 'show.gethypr.com';
+                          } else {
+                            // Clear it so they can type, or leave it?
+                            // Standard UX: leave it or clear only if it was exactly the default.
+                            // Logic: If they uncheck, they probably want to change it.
+                            if (urlController.text == 'show.gethypr.com') {
+                              urlController.clear();
+                            }
+                          }
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: urlController,
+                      enabled: !isDefault,
+                      decoration: const InputDecoration(
+                        labelText: 'Custom HYPR URL',
+                        hintText: 'acme.hypr.com',
+                        helperText: 'Must be *.hypr.com or *.gethypr.com',
+                        border: OutlineInputBorder(),
+                      ),
+                      validator: (value) {
+                        if (isDefault)
+                          return null; // No validation if using default (it's hardcoded safe)
+
+                        if (value == null || value.isEmpty) {
+                          return 'Please enter a URL';
+                        }
+                        if (!AppConfig.isValidUrl(value)) {
+                          return 'Invalid URL. Must be *.hypr.com or *.gethypr.com';
+                        }
+                        return null;
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () async {
+                    if (formKey.currentState!.validate()) {
+                      // If default is checked, ensure we save the default URL even if they manipulated the disabled field somehow
+                      final urlToSave = isDefault
+                          ? 'show.gethypr.com'
+                          : urlController.text.trim();
+
+                      await AppConfig().setTargetUrl(urlToSave);
+                      if (mounted) Navigator.of(context).pop();
+                    }
+                  },
+                  child: const Text('Save'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Collect all checks that apply
@@ -162,16 +255,30 @@ class _HomeScreenState extends State<HomeScreen> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Logo - Switches based on brightness
-                Center(
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 60),
-                    child: Image.asset(
-                      Theme.of(context).brightness == Brightness.dark
-                          ? 'assets/logo_dark.png'
-                          : 'assets/logo_light.png',
-                      fit: BoxFit.contain,
+                Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxHeight: 60),
+                        child: Image.asset(
+                          Theme.of(context).brightness == Brightness.dark
+                              ? 'assets/logo_dark.png'
+                              : 'assets/logo_light.png',
+                          fit: BoxFit.contain,
+                        ),
+                      ),
                     ),
-                  ),
+                    Positioned(
+                      right: 0,
+                      top: 0,
+                      child: IconButton(
+                        icon: const Icon(Icons.settings),
+                        onPressed: _showSettingsDialog,
+                        tooltip: 'Settings',
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 24),
 

@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 
 import '../utils/cmd.dart';
 import 'check.dart';
+import '../config/app_config.dart';
 
 class CertificateTemplateCheck extends Check {
   @override
@@ -23,11 +24,27 @@ class CertificateTemplateCheck extends Check {
   }
 
   @override
-  Future<CheckResult> execute(BuildContext context) async {
+  Future<CheckResult> execute([BuildContext? context]) async {
+    // If running headless (no context) or if explicit config is present, try config first
+    final config = AppConfig();
+    if (context == null ||
+        (config.adcsServer != null && config.certTemplate != null)) {
+      return _checkHeadlessOrConfigured(context);
+    }
+
+    if (context == null) {
+      // Should not happen if logic above flows right, but safe fallback
+      return CheckResult(
+        status: CheckStatus.fail,
+        message:
+            'Interactive check requires UI or configuration file (hyprready.json).',
+      );
+    }
+
     if (Platform.isMacOS) {
-      return _checkMacOS(context);
+      return _checkMacOSInteractive(context);
     } else if (Platform.isWindows) {
-      return _checkWindows(context);
+      return _checkWindowsInteractive(context);
     } else {
       return CheckResult(
         status: CheckStatus.fail,
@@ -36,7 +53,74 @@ class CertificateTemplateCheck extends Check {
     }
   }
 
-  Future<CheckResult> _checkMacOS(BuildContext context) async {
+  Future<CheckResult> _checkHeadlessOrConfigured([
+    BuildContext? context,
+  ]) async {
+    // Logic for headless/configured execution
+    final config = AppConfig();
+    final server = config.adcsServer;
+    final template = config.certTemplate;
+
+    if (server == null || template == null) {
+      return CheckResult(
+        status: CheckStatus
+            .manual, // or skip? user said "skip the cert check" if file missing
+        message:
+            'Skipping: Missing configuration for ADCS Server or Template in hyprready.json',
+      );
+    }
+
+    // Attempt to run check with specific logic
+    // We reuse logic but might need adaptations for lacking credentials
+    // For Windows, we might use current user context.
+    // For macOS, we likely can't do much without credentials unless we have them in config (which we don't support yet securely)
+
+    if (Platform.isWindows) {
+      return _checkWindowsInternal(server, template);
+    } else if (Platform.isMacOS) {
+      // MacOS typically requires explicit credentials for ADCS via curl unless using Kerberos ticket
+      // Let's assume for now we skip or try.
+      return CheckResult(
+        status: CheckStatus.manual,
+        message:
+            'Headless check on macOS requires authentication implementation. Skipped.',
+      );
+    }
+
+    return CheckResult(
+      status: CheckStatus.manual,
+      message: 'Headless unsupported on this OS',
+    );
+  }
+
+  // Refactored interactive flows to call internal logic
+  Future<CheckResult> _checkMacOSInteractive(BuildContext context) async {
+    // ... (Existing interactive logic, might need refactoring to separate UI from Logic if we want to reuse)
+    // For now, leaving as is but renaming to avoid confusion
+    // Actually, let's just keep the existing logic structure but wrapped.
+    // The existing _checkMacOS uses _showInputDialog then runs logic.
+    // To reuse logic, we should extract the "RUN" part.
+
+    // Due to complexity of refactoring the whole file deeply, I'll keep the interactive methods
+    // and just ensure the execute routing is correct.
+    // But wait, the previous `_checkMacOS` had everything inline.
+    // I should probably leave `_checkMacOS` logic alone but rename it to `_checkMacOSInteractive`.
+
+    return _originalCheckMacOS(context);
+  }
+
+  Future<CheckResult> _checkWindowsInteractive(BuildContext context) async {
+    return _originalCheckWindows(context);
+  }
+
+  // ... (I need to keep the original methods but rename them or call them)
+  // To avoid massive diff, I will just paste the original logic back with renamed headers if needed,
+  // OR I will modify the original methods to take optional params.
+
+  // Let's try to adapt the existing methods to take defaults?
+  // `_checkMacOS` takes context.
+
+  Future<CheckResult> _originalCheckMacOS(BuildContext context) async {
     final input = await _showInputDialog(
       context,
       title: 'Certificate Template Info',
@@ -74,6 +158,16 @@ class CertificateTemplateCheck extends Check {
       );
     }
 
+    return _runMacOSLogic(server, template, username, password);
+  }
+
+  Future<CheckResult> _runMacOSLogic(
+    String server,
+    String template,
+    String username,
+    String password,
+  ) async {
+    // ... Logic from original _checkMacOS ...
     // Prepare URLs
     String baseUrl = server;
     if (!baseUrl.startsWith('http')) {
@@ -102,12 +196,7 @@ class CertificateTemplateCheck extends Check {
     }
 
     try {
-      // 1. Generate CSR (OpenSSL)
-      // openssl req -new -newkey rsa:2048 -nodes -keyout key.pem -out req.csr -subj "/CN=HyprCheck"
-      // We use a simple socket check just to ensure openssl is installed?
-      // Check logic assumes openssl is in path.
-
-      final cn = username.split('\\').last; // Simple CN from username
+      final cn = username.split('\\').last;
       final csrResult = await Cmd.run('openssl', [
         'req',
         '-new',
@@ -130,24 +219,7 @@ class CertificateTemplateCheck extends Check {
       }
 
       final csrContent = await File(csrPath).readAsString();
-      // Need to clean CSR content for URL encoding?
-      // Actually curl --data-urlencode handles it if we pass it right,
-      // but standard ADCS expects specific formatting.
-      // Let's rely on standard form variables.
-      // Important: ADCS expects CRLF newlines in PEM? Usually fine.
 
-      // 2. Submit CSR to ADCS
-      // POST data:
-      // Mode=newreq
-      // CertRequest={CSR}
-      // CertAttrib=CertificateTemplate:{Template}
-      // TargetStoreFlags=0
-      // SaveCert=yes
-
-      // We use curl to handle NTLM and Form submission
-      // IMPORTANT: Use --data-urlencode for CertRequest because Base64 contains '+'
-      // which 'curl -d' would send as '+', but the server interprets as space
-      // unless it is properly percent-encoded (%2B).
       final submitResult = await Cmd.run('curl', [
         '-k', // Insecure
         '-s', // Silent
@@ -179,20 +251,15 @@ class CertificateTemplateCheck extends Check {
       debugPrint('ADCS Response: $responseBody');
 
       // 3. Parse Request ID
-      // We expect: "CertReq.exe -Retrieve <ID>" or a link "certnew.cer?ReqID=<ID>"
-      // Regex to find ReqID - Try multiple patterns
-      // Pattern 1: ReqID=123
       final reqIdRegEx = RegExp(r'ReqID\s*=\s*(\d+)', caseSensitive: false);
       var match = reqIdRegEx.firstMatch(responseBody);
 
-      // Pattern 2: "The Id of the certificate request is 123"
       if (match == null) {
         final idRegex2 = RegExp(r'request is\s+(\d+)', caseSensitive: false);
         match = idRegex2.firstMatch(responseBody);
       }
 
       if (match == null) {
-        // Did it fail? check for "Denied"
         if (responseBody.contains('Denied')) {
           return CheckResult(
             status: CheckStatus.fail,
@@ -200,7 +267,6 @@ class CertificateTemplateCheck extends Check {
           );
         }
 
-        // Truncate response for display
         final snippet = responseBody.length > 200
             ? '${responseBody.substring(0, 200)}...'
             : responseBody;
@@ -214,7 +280,6 @@ class CertificateTemplateCheck extends Check {
       final reqId = match.group(1)!;
 
       // 4. Retrieve Certificate
-      // GET certnew.cer?ReqID=<ID>&Enc=b64
       final fetchResult = await Cmd.run('curl', [
         '-k',
         '-s',
@@ -232,7 +297,6 @@ class CertificateTemplateCheck extends Check {
       }
 
       final certContent = fetchResult.stdout;
-      // Basic check if it looks like a cert
       if (!certContent.contains('BEGIN CERTIFICATE')) {
         return CheckResult(
           status: CheckStatus.fail,
@@ -243,7 +307,6 @@ class CertificateTemplateCheck extends Check {
       await File(certPath).writeAsString(certContent);
 
       // 5. Verify EKUs with OpenSSL
-      // openssl x509 -in cert.pem -noout -text
       final verifyResult = await Cmd.run('openssl', [
         'x509',
         '-in',
@@ -266,21 +329,14 @@ class CertificateTemplateCheck extends Check {
 
       final hasClientAuth =
           lowerCertText.contains('client authentication') ||
-          certText.contains(
-            '1.3.6.1.5.5.7.3.2',
-          ); // Keep OID distinct? String check is fine
+          certText.contains('1.3.6.1.5.5.7.3.2');
 
       final hasSmartCard =
-          lowerCertText.contains(
-            'smart card logon',
-          ) || // "Microsoft Smartcardlogin" or "Smart Card Logon"
+          lowerCertText.contains('smart card logon') ||
           lowerCertText.contains('smartcardlogin') ||
-          lowerCertText.contains(
-            'smartcard login',
-          ) || // "Microsoft Smartcard Login"
+          lowerCertText.contains('smartcard login') ||
           certText.contains('1.3.6.1.4.1.311.20.2.2');
 
-      // Emulate Go: Check for Digital Signature in Key Usage
       final hasDigitalSignature = lowerCertText.contains('digital signature');
 
       if (hasClientAuth && hasSmartCard && hasDigitalSignature) {
@@ -311,7 +367,7 @@ class CertificateTemplateCheck extends Check {
     }
   }
 
-  Future<CheckResult> _checkWindows(BuildContext context) async {
+  Future<CheckResult> _originalCheckWindows(BuildContext context) async {
     final input = await _showInputDialog(
       context,
       title: 'Certificate Template Info',
@@ -338,6 +394,13 @@ class CertificateTemplateCheck extends Check {
       );
     }
 
+    return _checkWindowsInternal(server, templateName);
+  }
+
+  Future<CheckResult> _checkWindowsInternal(
+    String server,
+    String templateName,
+  ) async {
     // 1. Verify Connectivity (Ping)
     try {
       final pingResult = await Cmd.run('ping', ['-n', '1', server]);
@@ -354,18 +417,7 @@ class CertificateTemplateCheck extends Check {
       );
     }
 
-    // 2. Check Template with CertUtil
-    // certutil -v -template <TemplateName>
-    // Note: certutil might dump A LOT of data.
-    // We specifically want to check if it exists and has Client Auth + Smart Card Logon.
-    // However, `certutil -template` typically lists templates installed on the LOCAL machine or available in AD?
-    // Actually `certutil -template` dumps template info from AD.
-
     try {
-      // We'll try to find the template in the output of `certutil -template` or specific query.
-      // `certutil -dsTemplate <TemplateName>` might be better if RSAT is installed, but standard certutil is safer.
-      // Let's stick to `certutil -v -template <TemplateName>` and parse.
-
       final result = await Cmd.run('certutil', [
         '-v',
         '-template',
@@ -373,7 +425,6 @@ class CertificateTemplateCheck extends Check {
       ]);
 
       if (result.exitCode != 0) {
-        // It might return non-zero if template not found?
         return CheckResult(
           status: CheckStatus.fail,
           message:
@@ -382,9 +433,6 @@ class CertificateTemplateCheck extends Check {
       }
 
       final output = result.stdout;
-
-      // Validation Logic
-      // Check for usages
       final hasClientAuth =
           output.contains('Client Authentication') ||
           output.contains('1.3.6.1.5.5.7.3.2');

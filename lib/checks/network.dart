@@ -8,13 +8,18 @@ import 'package:crypto/crypto.dart';
 
 import 'check.dart';
 
+import '../config/app_config.dart';
+
 class NetworkCheck extends Check {
-  static const String _host = 'show.gethypr.com';
+  // We use the dynamic URL from config.
+  // static const String _host = 'show.gethypr.com';
+  String get _host => AppConfig().targetUrl;
   static const int _port = 443;
   static const List<String> _validPinningHashes = [
     'Eyf4LHdUkuN5SJPZlO8OwetAmP3pNDvv3S/FH1ajZZQ=',
     '18tkPyr2nckv4fgo0dhAkaUtJ2hu2831xlO2SKhq8dg=',
     '++MBgDH5WGvL9Bcn5Be30cRcL0f5O+NyoXuWtQdX1aI=',
+    'Nx3GmQ2soqxY/+CZNbJN+gkJbY6Oc7pRZPfZcf3u71M=', // *.hypr.com (bayview)
   ];
 
   @override
@@ -33,7 +38,7 @@ class NetworkCheck extends Check {
   }
 
   @override
-  Future<CheckResult> execute(BuildContext context) async {
+  Future<CheckResult> execute([BuildContext? context]) async {
     SecureSocket? socket;
     try {
       socket = await SecureSocket.connect(

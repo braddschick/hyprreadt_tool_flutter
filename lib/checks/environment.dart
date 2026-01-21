@@ -22,7 +22,7 @@ class EnvironmentCheck extends Check {
   }
 
   @override
-  Future<CheckResult> execute(BuildContext context) async {
+  Future<CheckResult> execute([BuildContext? context]) async {
     final results = <String>[];
     int failedCount = 0;
 

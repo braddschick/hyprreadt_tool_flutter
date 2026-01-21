@@ -22,7 +22,7 @@ class OSVersionCheck extends Check {
   }
 
   @override
-  Future<CheckResult> execute(BuildContext context) async {
+  Future<CheckResult> execute([BuildContext? context]) async {
     if (Platform.isMacOS) {
       return _checkMacOS();
     } else if (Platform.isWindows) {

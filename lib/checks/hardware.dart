@@ -22,7 +22,7 @@ class HardwareCheck extends Check {
   }
 
   @override
-  Future<CheckResult> execute(BuildContext context) async {
+  Future<CheckResult> execute([BuildContext? context]) async {
     if (Platform.isMacOS) {
       return _checkMacOSSecureEnclave();
     } else if (Platform.isWindows) {

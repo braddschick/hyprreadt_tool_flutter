@@ -19,7 +19,7 @@ class WindowsSecurityCheck extends Check {
   bool appliesToOS(String os) => Platform.isWindows;
 
   @override
-  Future<CheckResult> execute(BuildContext context) async {
+  Future<CheckResult> execute([BuildContext? context]) async {
     final results = <String>[];
     int failedCount = 0;
 

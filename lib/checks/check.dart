@@ -22,5 +22,5 @@ abstract class Check {
   // Returns true if this check applies to the current OS
   bool appliesToOS(String os);
 
-  Future<CheckResult> execute(BuildContext context);
+  Future<CheckResult> execute([BuildContext? context]);
 }
