@@ -15,9 +15,18 @@ class HeadlessRunner {
     // Default to a temporary file or specific log location
     // args might contain --log-file <path>
     String? logPath;
+    // args might contain --log-file <path> or --log-file=<path>
+    String? logPath;
     for (int i = 0; i < args.length; i++) {
-      if (args[i] == '--log-file' && i + 1 < args.length) {
+      final arg = args[i];
+      if (arg == '--log-file' && i + 1 < args.length) {
         logPath = args[i + 1];
+        break;
+      } else if (arg.startsWith('--log-file=')) {
+        logPath = arg.substring('--log-file='.length);
+        if (logPath.startsWith('"') && logPath.endsWith('"')) {
+          logPath = logPath.substring(1, logPath.length - 1);
+        }
         break;
       }
     }
@@ -70,7 +79,7 @@ class HeadlessRunner {
         final result = await check.execute(); // No context
         switch (result.status) {
           case CheckStatus.pass:
-            log('PASS: ${check.title}');
+            log('PASS: ${check.title} - ${result.message}');
             passCount++;
             break;
           case CheckStatus.fail:
