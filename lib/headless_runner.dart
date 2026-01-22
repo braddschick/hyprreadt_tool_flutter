@@ -23,18 +23,9 @@ class HeadlessRunner {
     }
 
     if (logPath == null) {
-      if (Platform.isMacOS || Platform.isLinux) {
-        logPath = '/tmp/hyprready_headless.log';
-      } else if (Platform.isWindows) {
-        logPath = 'C:\\ProgramData\\HyprReady\\headless.log';
-        // Note: Writing to ProgramData might require admin rights usually.
-        // Fallback to temp if we can't write?
-        // For now let's use temp dir as safe default if not specified
-        final temp = await getTemporaryDirectory();
-        logPath = '${temp.path}\\hyprready_headless.log';
-      } else {
-        logPath = 'hyprready_headless.log';
-      }
+      final temp = await getTemporaryDirectory();
+      final separator = Platform.pathSeparator;
+      logPath = '${temp.path}${separator}hyprready_headless.log';
     }
 
     final File logFile = File(logPath);
