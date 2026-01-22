@@ -4,13 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart';
 
 import '../checks/check.dart';
-import '../checks/os_version.dart';
-import '../checks/hardware.dart';
-import '../checks/network.dart';
-import '../checks/environment.dart';
-import '../checks/certificate.dart';
-import '../checks/windows_security.dart';
-
 import '../ui/widgets/check_item.dart';
 
 import '../config/app_config.dart';

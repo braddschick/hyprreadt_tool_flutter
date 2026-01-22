@@ -14,7 +14,6 @@ class HeadlessRunner {
     // 2. Determine Log Location
     // Default to a temporary file or specific log location
     // args might contain --log-file <path>
-    String? logPath;
     // args might contain --log-file <path> or --log-file=<path>
     String? logPath;
     for (int i = 0; i < args.length; i++) {
