@@ -13,7 +13,20 @@ import '../config/app_config.dart';
 class NetworkCheck extends Check {
   // We use the dynamic URL from config.
   // static const String _host = 'show.gethypr.com';
-  String get _host => AppConfig().targetUrl;
+  // static const String _host = 'show.gethypr.com';
+  String get _host {
+    String url = AppConfig().targetUrl;
+    // Strip scheme if present to ensure we have a raw hostname for SecureSocket
+    if (url.startsWith('https://') || url.startsWith('http://')) {
+      try {
+        return Uri.parse(url).host;
+      } catch (e) {
+        // Fallback or let it fail later if parse fails
+      }
+    }
+    return url;
+  }
+
   static const int _port = 443;
   static const List<String> _validPinningHashes = [
     'Eyf4LHdUkuN5SJPZlO8OwetAmP3pNDvv3S/FH1ajZZQ=',
