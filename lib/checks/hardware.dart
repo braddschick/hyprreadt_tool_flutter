@@ -81,35 +81,57 @@ class HardwareCheck extends Check {
   }
 
   Future<CheckResult> _checkWindowsTPM() async {
-    final result = await Cmd.run('wmic', [
-      'path',
-      'Win32_Tpm',
-      'get',
-      'IsEnabled_InitialValue',
-      '/format:list',
-    ]);
+    // Attempt 1: PowerShell with WMI (Preferred for "Enabled" status)
+    try {
+      final result = await Cmd.run('powershell', [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        'Get-WmiObject -Namespace root/cimv2/security/microsofttpm -Class Win32_Tpm | Select-Object -ExpandProperty IsEnabled_InitialValue',
+      ]);
 
-    if (result.exitCode != 0) {
-      return CheckResult(
-        status: CheckStatus.fail,
-        message:
-            'Unable to detect TPM. WMI query failed. Ensure TPM is enabled in BIOS/UEFI settings.',
-      );
+      if (result.exitCode == 0) {
+        final output = result.stdout.trim().toLowerCase();
+        if (output == 'true') {
+          return CheckResult(
+            status: CheckStatus.pass,
+            message: 'TPM detected and enabled.',
+          );
+        } else if (output == 'false') {
+          return CheckResult(
+            status: CheckStatus.warning,
+            message: 'TPM detected but returned IsEnabled=FALSE.',
+          );
+        }
+      }
+    } catch (e) {
+      // Fallthrough to fallback
     }
 
-    final output = result.stdout;
-    if (output.contains('IsEnabled_InitialValue=TRUE') ||
-        output.contains('IsEnabled_InitialValue=True')) {
-      return CheckResult(
-        status: CheckStatus.pass,
-        message: 'TPM detected and enabled on this system.',
-      );
+    // Attempt 2: tpmtool (Fallback for simple presence/readiness)
+    // tpmtool getdeviceinformation
+    // Output line: "-TPM Present: True"
+    try {
+      final result = await Cmd.run('tpmtool', ['getdeviceinformation']);
+      if (result.exitCode == 0) {
+        final output = result.stdout;
+        // Check for presence
+        if (output.contains('TPM Present: True')) {
+          return CheckResult(
+            status: CheckStatus.pass,
+            message:
+                'TPM detected via tpmtool (Status: Present). verify enablement manually if needed.',
+          );
+        }
+      }
+    } catch (e) {
+      // Fallthrough
     }
 
     return CheckResult(
-      status: CheckStatus.warning,
+      status: CheckStatus.fail,
       message:
-          'TPM hardware detected but may not be fully enabled. Check BIOS/UEFI settings.',
+          'Unable to detect TPM via WMI or tpmtool. Ensure TPM is enabled in BIOS.',
     );
   }
 }
