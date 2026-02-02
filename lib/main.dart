@@ -20,7 +20,7 @@ void main(List<String> args) async {
 
   // Check for task registration/removal
   if (args.contains('--install-task')) {
-    await WindowsTaskManager.registerTask(args);
+    await WindowsTaskManager.registerTaskFromArgs(args);
     return;
   }
 

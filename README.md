@@ -105,10 +105,37 @@ You can configure the headless execution by placing a `hyprready.json` file in t
 ```
 *Note: If the configuration file is missing, the tool will use default values and skip the interactive Certificate Template check.*
 
----
 
+## Windows Boot Task Management
 
-## Installation & Development
+The application allows you to schedule a self-diagnostic task to run automatically at Windows system boot (before user login). This is useful for capturing the state of the machine immediately upon startup.
+
+### Managing via GUI
+1.  **Run as Administrator**: Right-click `hyprready.exe` and select "Run as administrator".
+2.  **Open Task Manager**: Click the Admin Shield icon in the top-right corner of the application window.
+3.  **Install/Remove**:
+    - If the task is not installed, configure the **Log File Path** and **Boot Delay** (seconds), then click **Install Task**.
+    - If the task is already installed, click **Remove Task** to unregister it.
+
+### Managing via CLI
+You can also manage the scheduled task using command-line arguments. **Administrator privileges are required.**
+
+#### Install Task
+```powershell
+hyprready.exe --install-task --log-file "C:\Temp\boot.log" --boot-delay 10
+```
+**Optional Arguments:**
+- `--log-file <path>`: Path to write the log file (default: `C:\Temp\hyprready.log`).
+- `--boot-delay <seconds>`: Seconds to wait after boot before running (default: `5`).
+- `--ssl-url <url>`: URL to use for SSL pinning check (default: `https://show.gethypr.com`).
+- `--adcs-server <fqdn>`: ADCS Server FQDN for certificate testing.
+- `--cert-template <name>`: Certificate Template name to request.
+
+#### Remove Task
+```powershell
+hyprready.exe --remove-task
+```
+
 
 This project is built with [Flutter](https://flutter.dev/).
 

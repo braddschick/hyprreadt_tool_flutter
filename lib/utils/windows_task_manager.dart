@@ -6,10 +6,69 @@ class WindowsTaskManager {
   static const String taskName = 'HYPRReady_Boot_Diagnostic';
   static const String configFileName = 'hyprready.json';
 
+  /// Checks if the task is currently installed.
+  static Future<bool> isTaskInstalled() async {
+    if (!Platform.isWindows) return false;
+
+    try {
+      final result = await Process.run('powershell', [
+        '-Command',
+        'Get-ScheduledTask -TaskName "$taskName" -ErrorAction SilentlyContinue',
+      ]);
+      // If exit code is 0 and stdout is not empty, it exists.
+      // If it doesn't exist, Get-ScheduledTask usually throws or returns nothing with error action.
+      // Actually with SilentlyContinue, it might just return nothing.
+      // But typically if it finds it, exit code 0. If not found, it might still be 0 but empty output or non-zero depending on ps version?
+      // Better check: if output contains the task name.
+
+      return result.exitCode == 0 &&
+          result.stdout.toString().contains(taskName);
+    } catch (e) {
+      print('Failed to check task status: $e');
+      return false;
+    }
+  }
+
+  /// Registers the Windows Scheduled Task using parsed arguments.
+  static Future<bool> registerTaskFromArgs(List<String> args) async {
+    String logPath = r'C:\Temp\hyprready.log';
+    String sslUrl = 'https://show.gethypr.com';
+    int delaySeconds = 5;
+    String? certTemplate;
+    String? adcsServer;
+
+    for (int i = 0; i < args.length; i++) {
+      final arg = args[i];
+      if (arg == '--log-file' && i + 1 < args.length) {
+        logPath = args[i + 1];
+      } else if (arg == '--ssl-url' && i + 1 < args.length) {
+        sslUrl = args[i + 1];
+      } else if (arg == '--boot-delay' && i + 1 < args.length) {
+        delaySeconds = int.tryParse(args[i + 1]) ?? 5;
+      } else if (arg == '--cert-template' && i + 1 < args.length) {
+        certTemplate = args[i + 1];
+      } else if (arg == '--adcs-server' && i + 1 < args.length) {
+        adcsServer = args[i + 1];
+      }
+    }
+
+    return register(
+      logPath: logPath,
+      sslUrl: sslUrl,
+      delaySeconds: delaySeconds,
+      certTemplate: certTemplate,
+      adcsServer: adcsServer,
+    );
+  }
+
   /// Registers the Windows Scheduled Task.
-  ///
-  /// returns true if successful, false otherwise.
-  static Future<bool> registerTask(List<String> args) async {
+  static Future<bool> register({
+    required String logPath,
+    required String sslUrl,
+    required int delaySeconds,
+    String? certTemplate,
+    String? adcsServer,
+  }) async {
     if (!Platform.isWindows) {
       print('Error: Windows Task Scheduler is only supported on Windows.');
       return false;
@@ -17,28 +76,6 @@ class WindowsTaskManager {
 
     try {
       print('Starting Task Registration...');
-
-      // 1. Gather Configuration (defaults matching the PowerShell script)
-      String logPath = r'C:\Temp\hyprready.log';
-      String sslUrl = 'https://show.gethypr.com';
-      int delaySeconds = 5;
-      String? certTemplate;
-      String? adcsServer;
-
-      for (int i = 0; i < args.length; i++) {
-        final arg = args[i];
-        if (arg == '--log-file' && i + 1 < args.length) {
-          logPath = args[i + 1];
-        } else if (arg == '--ssl-url' && i + 1 < args.length) {
-          sslUrl = args[i + 1];
-        } else if (arg == '--boot-delay' && i + 1 < args.length) {
-          delaySeconds = int.tryParse(args[i + 1]) ?? 5;
-        } else if (arg == '--cert-template' && i + 1 < args.length) {
-          certTemplate = args[i + 1];
-        } else if (arg == '--adcs-server' && i + 1 < args.length) {
-          adcsServer = args[i + 1];
-        }
-      }
 
       // 2. Create/Update Config File
       final exePath = Platform.resolvedExecutable;

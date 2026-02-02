@@ -8,6 +8,7 @@ import '../ui/widgets/check_item.dart';
 
 import '../config/app_config.dart';
 import '../checks/check_registry.dart';
+import '../utils/windows_task_manager.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -213,6 +214,169 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> _showBootTaskDialog() async {
+    if (!Platform.isWindows) return;
+
+    // fetch status
+    bool installed = await WindowsTaskManager.isTaskInstalled();
+
+    // controllers
+    final logPathController = TextEditingController(
+      text: r'C:\Temp\hyprready.log',
+    );
+    final delayController = TextEditingController(text: '5');
+    final formKey = GlobalKey<FormState>();
+
+    if (!mounted) return;
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Boot Diagnostic Task'),
+              content: Form(
+                key: formKey,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Text('Status: '),
+                        Text(
+                          installed ? 'INSTALLED' : 'NOT INSTALLED',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: installed ? Colors.green : Colors.orange,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    if (!installed) ...[
+                      const Text(
+                        'Configure task parameters:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        controller: logPathController,
+                        decoration: const InputDecoration(
+                          labelText: 'Log File Path',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Path required';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: delayController,
+                        keyboardType: TextInputType.number,
+                        decoration: const InputDecoration(
+                          labelText: 'Boot Delay (seconds)',
+                          border: OutlineInputBorder(),
+                          isDense: true,
+                        ),
+                        validator: (value) {
+                          if (value == null || int.tryParse(value) == null) {
+                            return 'Valid number required';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Note: This action requires Administrator privileges. If the app is not running as Admin, it may fail.',
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                      ),
+                    ] else ...[
+                      const Text(
+                        'The task is currently scheduled to run at system startup.',
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Close'),
+                ),
+                if (installed)
+                  FilledButton(
+                    style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                    onPressed: () async {
+                      final success = await WindowsTaskManager.removeTask();
+                      if (success) {
+                        setDialogState(() {
+                          installed = false;
+                        });
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Task removed')),
+                          );
+                        }
+                      } else {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Failed to remove task'),
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    child: const Text('Remove Task'),
+                  ),
+                if (!installed)
+                  FilledButton(
+                    onPressed: () async {
+                      if (formKey.currentState!.validate()) {
+                        final success = await WindowsTaskManager.register(
+                          logPath: logPathController.text,
+                          delaySeconds: int.parse(delayController.text),
+                          sslUrl: AppConfig().targetUrl,
+                        );
+
+                        if (success) {
+                          setDialogState(() {
+                            installed = true;
+                          });
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Task installed')),
+                            );
+                          }
+                        } else {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text(
+                                  'Failed to install task. Run as Administrator?',
+                                ),
+                              ),
+                            );
+                          }
+                        }
+                      }
+                    },
+                    child: const Text('Install Task'),
+                  ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Collect all checks that apply
@@ -265,10 +429,21 @@ class _HomeScreenState extends State<HomeScreen> {
                     Positioned(
                       right: 0,
                       top: 0,
-                      child: IconButton(
-                        icon: const Icon(Icons.settings),
-                        onPressed: _showSettingsDialog,
-                        tooltip: 'Settings',
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (Platform.isWindows)
+                            IconButton(
+                              icon: const Icon(Icons.admin_panel_settings),
+                              onPressed: _showBootTaskDialog,
+                              tooltip: 'Manage Boot Task',
+                            ),
+                          IconButton(
+                            icon: const Icon(Icons.settings),
+                            onPressed: _showSettingsDialog,
+                            tooltip: 'Settings',
+                          ),
+                        ],
                       ),
                     ),
                   ],
