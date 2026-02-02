@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'ui/home_screen.dart';
 import 'config/app_config.dart';
 import 'headless_runner.dart'; // Import HeadlessRunner
+import 'utils/windows_task_manager.dart';
 
 import 'package:window_manager/window_manager.dart';
 import 'package:screen_retriever/screen_retriever.dart';
@@ -15,6 +16,17 @@ void main(List<String> args) async {
   if (args.contains('--headless')) {
     await HeadlessRunner.run(args);
     return; // Exit after headless run
+  }
+
+  // Check for task registration/removal
+  if (args.contains('--install-task')) {
+    await WindowsTaskManager.registerTask(args);
+    return;
+  }
+
+  if (args.contains('--remove-task')) {
+    await WindowsTaskManager.removeTask();
+    return;
   }
 
   await windowManager.ensureInitialized();

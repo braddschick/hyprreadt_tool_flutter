@@ -43,6 +43,7 @@ dependencies:
   screen_retriever: ^0.2.0
   shared_preferences: ^2.5.4
   json_annotation: ^4.9.0
+  path: ^1.9.1
 
 dev_dependencies:
   flutter_test:
