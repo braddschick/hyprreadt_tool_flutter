@@ -9,6 +9,7 @@ import '../ui/widgets/check_item.dart';
 import '../config/app_config.dart';
 import '../checks/check_registry.dart';
 import '../utils/windows_task_manager.dart';
+import '../utils/macos_task_manager.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -215,15 +216,23 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _showBootTaskDialog() async {
-    if (!Platform.isWindows) return;
+    // Platform check (Windows OR macOS)
+    if (!Platform.isWindows && !Platform.isMacOS) return;
 
-    // fetch status
-    bool installed = await WindowsTaskManager.isTaskInstalled();
+    // Fetch Status
+    bool installed = false;
+    if (Platform.isWindows) {
+      installed = await WindowsTaskManager.isTaskInstalled();
+    } else if (Platform.isMacOS) {
+      installed = await MacOSTaskManager.isDaemonInstalled();
+    }
 
-    // controllers
-    final logPathController = TextEditingController(
-      text: r'C:\Temp\hyprready.log',
-    );
+    // Default Log Path per OS
+    final defaultLog = Platform.isWindows
+        ? r'C:\Temp\hyprready.log'
+        : '/tmp/hyprready_headless.log';
+
+    final logPathController = TextEditingController(text: defaultLog);
     final delayController = TextEditingController(text: '5');
     final formKey = GlobalKey<FormState>();
 
@@ -235,7 +244,11 @@ class _HomeScreenState extends State<HomeScreen> {
         return StatefulBuilder(
           builder: (context, setDialogState) {
             return AlertDialog(
-              title: const Text('Boot Diagnostic Task'),
+              title: Text(
+                Platform.isWindows
+                    ? 'Boot Diagnostic Task'
+                    : 'Boot LaunchDaemon',
+              ),
               content: Form(
                 key: formKey,
                 child: Column(
@@ -257,7 +270,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 16),
                     if (!installed) ...[
                       const Text(
-                        'Configure task parameters:',
+                        'Configure parameters:',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 8),
@@ -292,13 +305,20 @@ class _HomeScreenState extends State<HomeScreen> {
                         },
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Note: This action requires Administrator privileges. If the app is not running as Admin, it may fail.',
-                        style: TextStyle(color: Colors.grey, fontSize: 12),
+                      Text(
+                        Platform.isWindows
+                            ? 'Note: Requires Administrator privileges.'
+                            : 'Note: Requires Administrator password (via sudo/osascript).',
+                        style: const TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
                       ),
                     ] else ...[
-                      const Text(
-                        'The task is currently scheduled to run at system startup.',
+                      Text(
+                        Platform.isWindows
+                            ? 'The task is currently scheduled to run at system startup.'
+                            : 'The daemon is installed in /Library/LaunchDaemons/ and loaded.',
                       ),
                     ],
                   ],
@@ -313,37 +333,64 @@ class _HomeScreenState extends State<HomeScreen> {
                   FilledButton(
                     style: FilledButton.styleFrom(backgroundColor: Colors.red),
                     onPressed: () async {
-                      final success = await WindowsTaskManager.removeTask();
+                      bool success = false;
+                      if (Platform.isWindows) {
+                        success = await WindowsTaskManager.removeTask();
+                      } else {
+                        success = await MacOSTaskManager.remove();
+                      }
+
                       if (success) {
                         setDialogState(() {
                           installed = false;
                         });
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Task removed')),
+                            SnackBar(
+                              content: Text(
+                                Platform.isWindows
+                                    ? 'Task removed'
+                                    : 'Daemon removed',
+                              ),
+                            ),
                           );
                         }
                       } else {
                         if (mounted) {
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Failed to remove task'),
+                            SnackBar(
+                              content: Text(
+                                Platform.isWindows
+                                    ? 'Failed to remove task'
+                                    : 'Failed to remove daemon',
+                              ),
                             ),
                           );
                         }
                       }
                     },
-                    child: const Text('Remove Task'),
+                    child: Text(
+                      Platform.isWindows ? 'Remove Task' : 'Remove Daemon',
+                    ),
                   ),
                 if (!installed)
                   FilledButton(
                     onPressed: () async {
                       if (formKey.currentState!.validate()) {
-                        final success = await WindowsTaskManager.register(
-                          logPath: logPathController.text,
-                          delaySeconds: int.parse(delayController.text),
-                          sslUrl: AppConfig().targetUrl,
-                        );
+                        bool success = false;
+                        if (Platform.isWindows) {
+                          success = await WindowsTaskManager.register(
+                            logPath: logPathController.text,
+                            delaySeconds: int.parse(delayController.text),
+                            sslUrl: AppConfig().targetUrl,
+                          );
+                        } else {
+                          success = await MacOSTaskManager.register(
+                            logPath: logPathController.text,
+                            delaySeconds: int.parse(delayController.text),
+                            sslUrl: AppConfig().targetUrl,
+                          );
+                        }
 
                         if (success) {
                           setDialogState(() {
@@ -351,7 +398,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           });
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Task installed')),
+                              SnackBar(
+                                content: Text(
+                                  Platform.isWindows
+                                      ? 'Task installed'
+                                      : 'Daemon installed',
+                                ),
+                              ),
                             );
                           }
                         } else {
@@ -359,7 +412,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
                                 content: Text(
-                                  'Failed to install task. Run as Administrator?',
+                                  'Failed to install. Check permissions/logs.',
                                 ),
                               ),
                             );
@@ -367,7 +420,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         }
                       }
                     },
-                    child: const Text('Install Task'),
+                    child: Text(
+                      Platform.isWindows ? 'Install Task' : 'Install Daemon',
+                    ),
                   ),
               ],
             );
@@ -432,11 +487,13 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          if (Platform.isWindows)
+                          if (Platform.isWindows || Platform.isMacOS)
                             IconButton(
                               icon: const Icon(Icons.admin_panel_settings),
                               onPressed: _showBootTaskDialog,
-                              tooltip: 'Manage Boot Task',
+                              tooltip: Platform.isWindows
+                                  ? 'Manage Boot Task'
+                                  : 'Manage Boot Daemon',
                             ),
                           IconButton(
                             icon: const Icon(Icons.settings),

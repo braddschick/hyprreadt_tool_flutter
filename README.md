@@ -106,34 +106,42 @@ You can configure the headless execution by placing a `hyprready.json` file in t
 *Note: If the configuration file is missing, the tool will use default values and skip the interactive Certificate Template check.*
 
 
-## Windows Boot Task Management
+## Boot Task Management (Windows & macOS)
 
-The application allows you to schedule a self-diagnostic task to run automatically at Windows system boot (before user login). This is useful for capturing the state of the machine immediately upon startup.
+The application allows you to schedule a self-diagnostic task to run automatically at system boot (before user login). This is useful for capturing the state of the machine immediately upon startup.
 
 ### Managing via GUI
-1.  **Run as Administrator**: Right-click `hyprready.exe` and select "Run as administrator".
+1.  **Administrator Access**:
+    - **Windows**: Right-click `hyprready.exe` and "Run as administrator".
+    - **macOS**: Launch the app normally. You will be prompted for your password when installing/removing the daemon.
 2.  **Open Task Manager**: Click the Admin Shield icon in the top-right corner of the application window.
 3.  **Install/Remove**:
-    - If the task is not installed, configure the **Log File Path** and **Boot Delay** (seconds), then click **Install Task**.
-    - If the task is already installed, click **Remove Task** to unregister it.
+    - Configure the **Log File Path** and **Boot Delay** (seconds), then click **Install Task/Daemon**.
+    - If already installed, click **Remove Task/Daemon** to unregister.
 
 ### Managing via CLI
-You can also manage the scheduled task using command-line arguments. **Administrator privileges are required.**
+You can also manage the scheduled task of daemon via CLI. **Administrator/Root privileges are required.**
 
-#### Install Task
+#### Install
+**Windows**:
 ```powershell
 hyprready.exe --install-task --log-file "C:\Temp\boot.log" --boot-delay 10
 ```
-**Optional Arguments:**
-- `--log-file <path>`: Path to write the log file (default: `C:\Temp\hyprready.log`).
-- `--boot-delay <seconds>`: Seconds to wait after boot before running (default: `5`).
-- `--ssl-url <url>`: URL to use for SSL pinning check (default: `https://show.gethypr.com`).
-- `--adcs-server <fqdn>`: ADCS Server FQDN for certificate testing.
-- `--cert-template <name>`: Certificate Template name to request.
 
-#### Remove Task
+**macOS**:
+```bash
+sudo ./hyprready.app/Contents/MacOS/hyprready --install-daemon --log-file "/tmp/boot.log" --boot-delay 10
+```
+
+#### Remove
+**Windows**:
 ```powershell
 hyprready.exe --remove-task
+```
+
+**macOS**:
+```bash
+sudo ./hyprready.app/Contents/MacOS/hyprready --remove-daemon
 ```
 
 

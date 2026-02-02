@@ -5,6 +5,7 @@ import 'ui/home_screen.dart';
 import 'config/app_config.dart';
 import 'headless_runner.dart'; // Import HeadlessRunner
 import 'utils/windows_task_manager.dart';
+import 'utils/macos_task_manager.dart';
 
 import 'package:window_manager/window_manager.dart';
 import 'package:screen_retriever/screen_retriever.dart';
@@ -26,6 +27,17 @@ void main(List<String> args) async {
 
   if (args.contains('--remove-task')) {
     await WindowsTaskManager.removeTask();
+    return;
+  }
+
+  // Check for macOS daemon registration/removal
+  if (args.contains('--install-daemon')) {
+    await MacOSTaskManager.registerFromArgs(args);
+    return;
+  }
+
+  if (args.contains('--remove-daemon')) {
+    await MacOSTaskManager.remove();
     return;
   }
 
