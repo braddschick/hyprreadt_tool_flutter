@@ -58,6 +58,56 @@ The tool runs the following categories of checks. Some are OS-specific.
 
 ---
 
+## Headless Execution
+
+The tool supports a headless mode for automated diagnostics (e.g., boot-time checks) where no user interface is displayed. Results are written directly to a log file.
+
+### Usage
+
+Run the executable with the `--headless` flag:
+
+**macOS:**
+```bash
+./hyprready.app/Contents/MacOS/hyprready --headless
+```
+
+**Windows:**
+```powershell
+.\hyprready.exe --headless
+```
+
+### Logging
+
+By default, logs are written to the system's temporary directory:
+- **Windows**: `%TEMP%\hyprready_headless.log`
+- **macOS/Linux**: `/tmp/hyprready_headless.log`
+
+To specify a custom log file location, use the `--log-file` argument:
+```bash
+hyprready --headless --log-file "C:\Logs\startup_check.log"
+```
+
+### Configuration (`hyprready.json`)
+You can configure the headless execution by placing a `hyprready.json` file in the same directory as the application executable.
+
+**Supported Properties:**
+- `targetUrl`: The hostname to pin SSL against (e.g., `custom.hypr.com`). **Do not include `https://`.**
+- `adcsServer`: The FQDN of the ADCS server for certificate checks.
+- `certTemplate`: The name of the certificate template to request.
+
+**Example `hyprready.json`:**
+```json
+{
+  "targetUrl": "custom.hypr.com",
+  "adcsServer": "pki.corp.example.com",
+  "certTemplate": "UserAuth"
+}
+```
+*Note: If the configuration file is missing, the tool will use default values and skip the interactive Certificate Template check.*
+
+---
+
+
 ## Installation & Development
 
 This project is built with [Flutter](https://flutter.dev/).
