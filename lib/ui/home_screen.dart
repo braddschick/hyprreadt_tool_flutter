@@ -10,6 +10,7 @@ import '../config/app_config.dart';
 import '../checks/check_registry.dart';
 import '../utils/windows_task_manager.dart';
 import '../utils/macos_task_manager.dart';
+import '../utils/task_operation_result.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -333,14 +334,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   FilledButton(
                     style: FilledButton.styleFrom(backgroundColor: Colors.red),
                     onPressed: () async {
-                      bool success = false;
+                      TaskOperationResult result;
                       if (Platform.isWindows) {
-                        success = await WindowsTaskManager.removeTask();
+                        result = await WindowsTaskManager.removeTask();
                       } else {
-                        success = await MacOSTaskManager.remove();
+                        result = await MacOSTaskManager.remove();
                       }
 
-                      if (success) {
+                      if (result.success) {
                         setDialogState(() {
                           installed = false;
                         });
@@ -357,13 +358,19 @@ class _HomeScreenState extends State<HomeScreen> {
                         }
                       } else {
                         if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
+                          showDialog(
+                            context: context,
+                            builder: (context) => AlertDialog(
+                              title: const Text('Error Removing Boot Task'),
                               content: Text(
-                                Platform.isWindows
-                                    ? 'Failed to remove task'
-                                    : 'Failed to remove daemon',
+                                'Reason: ${result.message}\n\nDetails: ${result.errorDetails}',
                               ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text('OK'),
+                                ),
+                              ],
                             ),
                           );
                         }
@@ -377,22 +384,22 @@ class _HomeScreenState extends State<HomeScreen> {
                   FilledButton(
                     onPressed: () async {
                       if (formKey.currentState!.validate()) {
-                        bool success = false;
+                        TaskOperationResult result;
                         if (Platform.isWindows) {
-                          success = await WindowsTaskManager.register(
+                          result = await WindowsTaskManager.register(
                             logPath: logPathController.text,
                             delaySeconds: int.parse(delayController.text),
                             sslUrl: AppConfig().targetUrl,
                           );
                         } else {
-                          success = await MacOSTaskManager.register(
+                          result = await MacOSTaskManager.register(
                             logPath: logPathController.text,
                             delaySeconds: int.parse(delayController.text),
                             sslUrl: AppConfig().targetUrl,
                           );
                         }
 
-                        if (success) {
+                        if (result.success) {
                           setDialogState(() {
                             installed = true;
                           });
@@ -409,11 +416,19 @@ class _HomeScreenState extends State<HomeScreen> {
                           }
                         } else {
                           if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
+                            showDialog(
+                              context: context,
+                              builder: (context) => AlertDialog(
+                                title: const Text('Error Installing Boot Task'),
                                 content: Text(
-                                  'Failed to install. Check permissions/logs.',
+                                  'Reason: ${result.message}\n\nDetails: ${result.errorDetails}',
                                 ),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: const Text('OK'),
+                                  ),
+                                ],
                               ),
                             );
                           }

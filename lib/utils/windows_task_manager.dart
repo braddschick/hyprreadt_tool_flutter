@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'dart:convert';
 import 'package:path/path.dart' as p;
+import 'task_operation_result.dart';
 
 class WindowsTaskManager {
   static const String taskName = 'HYPRReady_Boot_Diagnostic';
@@ -30,7 +31,9 @@ class WindowsTaskManager {
   }
 
   /// Registers the Windows Scheduled Task using parsed arguments.
-  static Future<bool> registerTaskFromArgs(List<String> args) async {
+  static Future<TaskOperationResult> registerTaskFromArgs(
+    List<String> args,
+  ) async {
     String logPath = r'C:\Temp\hyprready.log';
     String sslUrl = 'https://show.gethypr.com';
     int delaySeconds = 5;
@@ -62,7 +65,7 @@ class WindowsTaskManager {
   }
 
   /// Registers the Windows Scheduled Task.
-  static Future<bool> register({
+  static Future<TaskOperationResult> register({
     required String logPath,
     required String sslUrl,
     required int delaySeconds,
@@ -70,8 +73,9 @@ class WindowsTaskManager {
     String? adcsServer,
   }) async {
     if (!Platform.isWindows) {
-      print('Error: Windows Task Scheduler is only supported on Windows.');
-      return false;
+      return TaskOperationResult.failure(
+        'Windows Task Scheduler is only supported on Windows.',
+      );
     }
 
     try {
@@ -102,8 +106,6 @@ class WindowsTaskManager {
       }
 
       // 4. Register Task via PowerShell
-      // We use the exact logic from the PS1 script
-
       final arguments = '--headless --log-file "$logPath"';
 
       // PowerShell script to execute
@@ -132,23 +134,32 @@ Register-ScheduledTask -TaskName \$taskName -Action \$action -Trigger \$trigger 
       if (result.exitCode == 0) {
         print(result.stdout);
         print('SUCCESS: Task "$taskName" registered successfully.');
-        return true;
+        return TaskOperationResult.success(
+          'Task "$taskName" registered successfully.',
+        );
       } else {
         print('FAILURE: PowerShell returned exit code ${result.exitCode}');
         print('STDERR: ${result.stderr}');
-        return false;
+        return TaskOperationResult.failure(
+          'Failed to register task via PowerShell.',
+          result.stderr,
+        );
       }
     } catch (e) {
       print('EXCEPTION: Failed to register task: $e');
-      return false;
+      return TaskOperationResult.failure(
+        'Exception during task registration.',
+        e.toString(),
+      );
     }
   }
 
   /// Removes the Windows Scheduled Task.
-  static Future<bool> removeTask() async {
+  static Future<TaskOperationResult> removeTask() async {
     if (!Platform.isWindows) {
-      print('Error: Windows Task Scheduler is only supported on Windows.');
-      return false;
+      return TaskOperationResult.failure(
+        'Windows Task Scheduler is only supported on Windows.',
+      );
     }
 
     try {
@@ -161,23 +172,31 @@ Register-ScheduledTask -TaskName \$taskName -Action \$action -Trigger \$trigger 
 
       if (result.exitCode == 0) {
         print('SUCCESS: Task "$taskName" removed.');
-        return true;
+        return TaskOperationResult.success('Task "$taskName" removed.');
       } else {
         // Check if error is simply that the task doesn't exist
         if (result.stderr.toString().contains(
           'No MSFT_ScheduledTask objects found',
         )) {
           print('Task "$taskName" was not found (nothing to remove).');
-          return true;
+          return TaskOperationResult.success(
+            'Task was not found (nothing to remove).',
+          );
         }
 
         print('FAILURE: Failed to remove task.');
         print('STDERR: ${result.stderr}');
-        return false;
+        return TaskOperationResult.failure(
+          'Failed to remove task.',
+          result.stderr,
+        );
       }
     } catch (e) {
       print('EXCEPTION: Failed to remove task: $e');
-      return false;
+      return TaskOperationResult.failure(
+        'Exception during task removal.',
+        e.toString(),
+      );
     }
   }
 }

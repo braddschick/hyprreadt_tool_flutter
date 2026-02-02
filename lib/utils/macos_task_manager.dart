@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:path/path.dart' as p;
+import 'task_operation_result.dart';
 
 class MacOSTaskManager {
   static const String label = 'com.hypr.hyprready.daemon';
@@ -12,7 +13,7 @@ class MacOSTaskManager {
   }
 
   /// Registers the LaunchDaemon using parsed arguments (for CLI).
-  static Future<bool> registerFromArgs(List<String> args) async {
+  static Future<TaskOperationResult> registerFromArgs(List<String> args) async {
     String logPath = '/tmp/hyprready_headless.log';
     String sslUrl = 'https://show.gethypr.com';
     int delaySeconds = 5;
@@ -42,15 +43,17 @@ class MacOSTaskManager {
     );
   }
 
-  /// Registers the LaunchDaemon.
-  ///
   /// Uses `osascript` to request admin privileges for writing to /Library/LaunchDaemons.
-  static Future<bool> register({
+  static Future<TaskOperationResult> register({
     required String logPath,
     required int delaySeconds,
     required String sslUrl,
   }) async {
-    if (!Platform.isMacOS) return false;
+    if (!Platform.isMacOS) {
+      return TaskOperationResult.failure(
+        'macOS LaunchDaemons are only supported on macOS.',
+      );
+    }
 
     try {
       final exePath = Platform.resolvedExecutable;
@@ -125,19 +128,31 @@ class MacOSTaskManager {
 
       if (result.exitCode == 0) {
         print('SUCCESS: Daemon installed and loaded.');
-        return true;
+        return TaskOperationResult.success(
+          'Daemon installed and loaded successfully.',
+        );
       } else {
         print('FAILURE: ${result.stderr}');
-        return false;
+        return TaskOperationResult.failure(
+          'Failed to install daemon via osascript.',
+          result.stderr,
+        );
       }
     } catch (e) {
       print('EXCEPTION: $e');
-      return false;
+      return TaskOperationResult.failure(
+        'Exception during daemon installation.',
+        e.toString(),
+      );
     }
   }
 
-  static Future<bool> remove() async {
-    if (!Platform.isMacOS) return false;
+  static Future<TaskOperationResult> remove() async {
+    if (!Platform.isMacOS) {
+      return TaskOperationResult.failure(
+        'macOS LaunchDaemons are only supported on macOS.',
+      );
+    }
 
     try {
       final commands = [
@@ -150,10 +165,20 @@ class MacOSTaskManager {
         'do shell script "$commands" with administrator privileges',
       ]);
 
-      return result.exitCode == 0;
+      if (result.exitCode == 0) {
+        return TaskOperationResult.success('Daemon removed successfully.');
+      } else {
+        return TaskOperationResult.failure(
+          'Failed to remove daemon.',
+          result.stderr,
+        );
+      }
     } catch (e) {
       print('EXCEPTION: $e');
-      return false;
+      return TaskOperationResult.failure(
+        'Exception during daemon removal.',
+        e.toString(),
+      );
     }
   }
 }
