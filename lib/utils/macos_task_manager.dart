@@ -119,11 +119,13 @@ class MacOSTaskManager {
         'launchctl load "$plistPath"',
       ].join(' && ');
 
+      final scriptCommands = commands.replaceAll('"', '\\"');
+
       print('Requesting privileges to install daemon...');
 
       final result = await Process.run('osascript', [
         '-e',
-        'do shell script "$commands" with administrator privileges',
+        'do shell script "$scriptCommands" with administrator privileges',
       ]);
 
       if (result.exitCode == 0) {
@@ -160,9 +162,11 @@ class MacOSTaskManager {
         'rm -f "$plistPath"',
       ].join(' && ');
 
+      final scriptCommands = commands.replaceAll('"', '\\"');
+
       final result = await Process.run('osascript', [
         '-e',
-        'do shell script "$commands" with administrator privileges',
+        'do shell script "$scriptCommands" with administrator privileges',
       ]);
 
       if (result.exitCode == 0) {

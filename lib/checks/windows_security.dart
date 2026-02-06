@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../utils/cmd.dart';
+import '../utils/dsreg_service.dart';
 import 'check.dart';
 
 class WindowsSecurityCheck extends Check {
@@ -26,7 +27,7 @@ class WindowsSecurityCheck extends Check {
     // --- Prepare Futures for Parallel Execution ---
 
     // 1. dsregcmd /status
-    final dsRegFuture = Cmd.run('dsregcmd', ['/status']);
+    final dsRegFuture = DsRegService().getStatus();
 
     // 2. Registry Checks
     // Helper to return a struct or tuple, but for simplicity we'll just return the result string from a helper function
@@ -108,52 +109,36 @@ class WindowsSecurityCheck extends Check {
 
     // --- Await All ---
     final resultsList = await Future.wait([
-      dsRegFuture,
+      dsRegFuture.then((value) => value as dynamic).catchError((e) => e),
       scRemoveFuture,
       scForceFuture,
       cachedCredsFuture,
       dcTrustFuture,
     ]);
 
-    final dsResult = resultsList[0] as CmdResult;
+    final dsResultOrError = resultsList[0];
     final scRemoveResult = resultsList[1] as String;
     final scForceResult = resultsList[2] as String;
     final cachedCredsResult = resultsList[3] as String;
     final dcTrustResult = resultsList[4] as String;
 
     // --- Process dsregcmd Results ---
-    if (dsResult.exitCode == 0) {
-      final output = dsResult.stdout.toString();
-      // Helper
-      String? extract(String pattern) {
-        final regex = RegExp(pattern, caseSensitive: false, multiLine: true);
-        final match = regex.firstMatch(output);
-        return match?.group(1)?.trim();
-      }
-
+    if (dsResultOrError is DsRegStatus) {
+      final status = dsResultOrError;
+      results.add('ℹ️ Device Name: ${status.deviceName}');
       results.add(
-        'ℹ️ Device Name: ${extract(r'Device Name\s*:\s*(.*)') ?? "Unknown"}',
+        status.isDomainJoined ? '✅ Domain Joined: YES' : '⚠️ Domain Joined: NO',
       );
-
-      final domainJoined = extract(r'DomainJoined\s*:\s*(YES|NO)');
+      results.add('Azure AD Joined: ${status.isAzureAdJoined ? "YES" : "NO"}');
       results.add(
-        domainJoined == 'YES' ? '✅ Domain Joined: YES' : '⚠️ Domain Joined: NO',
+        'Enterprise Joined: ${status.isEnterpriseJoined ? "YES" : "NO"}',
       );
-
+      results.add('Azure SSO PRT: ${status.isAzureAdPrt ? "YES" : "NO"}');
       results.add(
-        'Azure AD Joined: ${extract(r'AzureAdJoined\s*:\s*(YES|NO)')}',
-      );
-      results.add(
-        'Enterprise Joined: ${extract(r'EnterpriseJoined\s*:\s*(YES|NO)') ?? "NO"}',
-      );
-      results.add(
-        'Azure SSO PRT: ${extract(r'AzureAdPrt\s*:\s*(YES|NO)') ?? "NO"}',
-      );
-      results.add(
-        'Enterprise SSO PRT: ${extract(r'EnterprisePrt\s*:\s*(YES|NO)') ?? "NO"}',
+        'Enterprise SSO PRT: ${status.isEnterprisePrt ? "YES" : "NO"}',
       );
     } else {
-      results.add('❌ Failed to run dsregcmd');
+      results.add('❌ Failed to run dsregcmd: $dsResultOrError');
       failedCount++;
     }
 

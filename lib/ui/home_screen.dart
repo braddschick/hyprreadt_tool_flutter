@@ -342,6 +342,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       }
 
                       if (result.success) {
+                        if (!context.mounted) return;
                         setDialogState(() {
                           installed = false;
                         });
@@ -400,6 +401,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         }
 
                         if (result.success) {
+                          if (!context.mounted) return;
                           setDialogState(() {
                             installed = true;
                           });
