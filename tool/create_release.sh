@@ -33,6 +33,13 @@ fi
 echo "Building macOS application..."
 flutter build macos --release
 
+# Sign the application
+echo "Signing application..."
+SIGNING_IDENTITY="Apple Distribution: Bradd Schick (WS6W6NH6S7)"
+codesign --force --deep --options runtime --sign "$SIGNING_IDENTITY" "build/macos/Build/Products/Release/HyprReady.app"
+codesign -dv --verbose=4 "build/macos/Build/Products/Release/HyprReady.app"
+
+
 # Zip the artifact
 ARTIFACT_NAME="hyprready-${TAG}-${ARCH}.zip"
 echo "Zipping artifact to $ARTIFACT_NAME..."
