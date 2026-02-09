@@ -236,11 +236,13 @@ class _HomeScreenState extends State<HomeScreen> {
     final logPathController = TextEditingController(text: defaultLog);
     final delayController = TextEditingController(text: '5');
     final formKey = GlobalKey<FormState>();
+    bool isLoading = false; // Add local state for loading
 
     if (!mounted) return;
 
     await showDialog(
       context: context,
+      barrierDismissible: false, // Prevent dismissal while loading
       builder: (context) {
         return StatefulBuilder(
           builder: (context, setDialogState) {
@@ -259,13 +261,20 @@ class _HomeScreenState extends State<HomeScreen> {
                     Row(
                       children: [
                         const Text('Status: '),
-                        Text(
-                          installed ? 'INSTALLED' : 'NOT INSTALLED',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: installed ? Colors.green : Colors.orange,
+                        if (isLoading)
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        else
+                          Text(
+                            installed ? 'INSTALLED' : 'NOT INSTALLED',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: installed ? Colors.green : Colors.orange,
+                            ),
                           ),
-                        ),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -277,6 +286,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       const SizedBox(height: 8),
                       TextFormField(
                         controller: logPathController,
+                        enabled: !isLoading,
                         decoration: const InputDecoration(
                           labelText: 'Log File Path',
                           border: OutlineInputBorder(),
@@ -293,6 +303,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       TextFormField(
                         controller: delayController,
                         keyboardType: TextInputType.number,
+                        enabled: !isLoading,
                         decoration: const InputDecoration(
                           labelText: 'Boot Delay (seconds)',
                           border: OutlineInputBorder(),
@@ -326,120 +337,170 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('Close'),
-                ),
+                if (!isLoading)
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    child: const Text('Close'),
+                  ),
                 if (installed)
                   FilledButton(
                     style: FilledButton.styleFrom(backgroundColor: Colors.red),
-                    onPressed: () async {
-                      TaskOperationResult result;
-                      if (Platform.isWindows) {
-                        result = await WindowsTaskManager.removeTask();
-                      } else {
-                        result = await MacOSTaskManager.remove();
-                      }
+                    onPressed: isLoading
+                        ? null
+                        : () async {
+                            setDialogState(() {
+                              isLoading = true;
+                            });
 
-                      if (result.success) {
-                        if (!context.mounted) return;
-                        setDialogState(() {
-                          installed = false;
-                        });
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                Platform.isWindows
-                                    ? 'Task removed'
-                                    : 'Daemon removed',
-                              ),
+                            TaskOperationResult result;
+                            if (Platform.isWindows) {
+                              result = await WindowsTaskManager.removeTask();
+                            } else {
+                              result = await MacOSTaskManager.remove();
+                            }
+
+                            if (result.success) {
+                              if (!context.mounted) return;
+                              setDialogState(() {
+                                installed = false;
+                                isLoading = false;
+                              });
+                              if (mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      Platform.isWindows
+                                          ? 'Task removed'
+                                          : 'Daemon removed',
+                                    ),
+                                  ),
+                                );
+                              }
+                            } else {
+                              setDialogState(() {
+                                isLoading = false;
+                              });
+                              if (mounted) {
+                                // Close current dialog to show error dialog? Or show error on top?
+                                // Let's show on top.
+                                showDialog(
+                                  context: context,
+                                  builder: (context) => AlertDialog(
+                                    title: const Text(
+                                      'Error Removing Boot Task',
+                                    ),
+                                    content: Text(
+                                      'Reason: ${result.message}\n\nDetails: ${result.errorDetails}',
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(context),
+                                        child: const Text('OK'),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
+                            }
+                          },
+                    child: isLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
                             ),
-                          );
-                        }
-                      } else {
-                        if (mounted) {
-                          showDialog(
-                            context: context,
-                            builder: (context) => AlertDialog(
-                              title: const Text('Error Removing Boot Task'),
-                              content: Text(
-                                'Reason: ${result.message}\n\nDetails: ${result.errorDetails}',
-                              ),
-                              actions: [
-                                TextButton(
-                                  onPressed: () => Navigator.pop(context),
-                                  child: const Text('OK'),
-                                ),
-                              ],
-                            ),
-                          );
-                        }
-                      }
-                    },
-                    child: Text(
-                      Platform.isWindows ? 'Remove Task' : 'Remove Daemon',
-                    ),
+                          )
+                        : Text(
+                            Platform.isWindows
+                                ? 'Remove Task'
+                                : 'Remove Daemon',
+                          ),
                   ),
                 if (!installed)
                   FilledButton(
-                    onPressed: () async {
-                      if (formKey.currentState!.validate()) {
-                        TaskOperationResult result;
-                        if (Platform.isWindows) {
-                          result = await WindowsTaskManager.register(
-                            logPath: logPathController.text,
-                            delaySeconds: int.parse(delayController.text),
-                            sslUrl: AppConfig().targetUrl,
-                          );
-                        } else {
-                          result = await MacOSTaskManager.register(
-                            logPath: logPathController.text,
-                            delaySeconds: int.parse(delayController.text),
-                            sslUrl: AppConfig().targetUrl,
-                          );
-                        }
+                    onPressed: isLoading
+                        ? null
+                        : () async {
+                            if (formKey.currentState!.validate()) {
+                              setDialogState(() {
+                                isLoading = true;
+                              });
 
-                        if (result.success) {
-                          if (!context.mounted) return;
-                          setDialogState(() {
-                            installed = true;
-                          });
-                          if (mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  Platform.isWindows
-                                      ? 'Task installed'
-                                      : 'Daemon installed',
-                                ),
-                              ),
-                            );
-                          }
-                        } else {
-                          if (mounted) {
-                            showDialog(
-                              context: context,
-                              builder: (context) => AlertDialog(
-                                title: const Text('Error Installing Boot Task'),
-                                content: Text(
-                                  'Reason: ${result.message}\n\nDetails: ${result.errorDetails}',
-                                ),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: const Text('OK'),
-                                  ),
-                                ],
-                              ),
-                            );
-                          }
-                        }
-                      }
-                    },
-                    child: Text(
-                      Platform.isWindows ? 'Install Task' : 'Install Daemon',
-                    ),
+                              TaskOperationResult result;
+                              if (Platform.isWindows) {
+                                result = await WindowsTaskManager.register(
+                                  logPath: logPathController.text,
+                                  delaySeconds: int.parse(delayController.text),
+                                  sslUrl: AppConfig().targetUrl,
+                                );
+                              } else {
+                                result = await MacOSTaskManager.register(
+                                  logPath: logPathController.text,
+                                  delaySeconds: int.parse(delayController.text),
+                                  sslUrl: AppConfig().targetUrl,
+                                );
+                              }
+
+                              if (result.success) {
+                                if (!context.mounted) return;
+                                setDialogState(() {
+                                  installed = true;
+                                  isLoading = false;
+                                });
+                                if (mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        Platform.isWindows
+                                            ? 'Task installed'
+                                            : 'Daemon installed',
+                                      ),
+                                    ),
+                                  );
+                                }
+                              } else {
+                                setDialogState(() {
+                                  isLoading = false;
+                                });
+                                if (mounted) {
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) => AlertDialog(
+                                      title: const Text(
+                                        'Error Installing Boot Task',
+                                      ),
+                                      content: Text(
+                                        'Reason: ${result.message}\n\nDetails: ${result.errorDetails}',
+                                      ),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () =>
+                                              Navigator.pop(context),
+                                          child: const Text('OK'),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }
+                              }
+                            }
+                          },
+                    child: isLoading
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.white,
+                            ),
+                          )
+                        : Text(
+                            Platform.isWindows
+                                ? 'Install Task'
+                                : 'Install Daemon',
+                          ),
                   ),
               ],
             );
