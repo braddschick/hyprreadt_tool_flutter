@@ -1,6 +1,7 @@
 #!/bin/bash
 set -e
 
+CWD=$(pwd -P)
 # Ensure we are in the root of the project
 if [ ! -f pubspec.yaml ]; then
   echo "Error: pubspec.yaml not found. Please run this from the project root."
@@ -44,10 +45,7 @@ codesign -dv --verbose=4 "build/macos/Build/Products/Release/HyprReady.app"
 ARTIFACT_NAME="hyprready-${TAG}-${ARCH}.app"
 echo "Adding artifact to $ARTIFACT_NAME..."
 mkdir -p releases/${TAG}
-cd build/macos/Build/Products/Release
-mv "$ARTIFACT_NAME" ../../../../../releases/${TAG}
-cd - > /dev/null
-
+mv "build/macos/Build/Products/Release/HyprReady.app" "${CWD}/releases/${TAG}/${ARTIFACT_NAME}"
 echo "Artifact created: $ARTIFACT_NAME"
 
 # Determine if we should create a release
