@@ -5,7 +5,7 @@ The HyprReadiness Tool is a cross-platform Flutter application designed to verif
 ## Deployment Prerequisites
 
 ### Supported Operating Systems
-- **macOS**: 13 (Ventura), 14.1+ (Sonoma), or 15+ (Sequoia)
+- **macOS**: 13 (Ventura), 14.1+ (Sonoma), or 15+ (Sequoia) (Note: macOS 14.0 is not supported)
 - **Windows**: Windows 10 Pro or Windows 11 Pro
 
 ---
@@ -16,6 +16,7 @@ The tool runs the following categories of checks. Some are OS-specific.
 
 ### Common Checks
 - **OS Version Compatibility**: Verifies the operating system version matches the supported versions listed above.
+- **Administrative Privileges**: Verifies the current user has administrative rights (required for some checks).
 - **Network Connectivity**: 
   - Connects to `show.gethypr.com` via HTTPS.
   - **SSL Pinning**: Validates the server's public key hash against known valid pinnings to ensure a secure, intercepted-free connection.
@@ -38,6 +39,7 @@ The tool runs the following categories of checks. Some are OS-specific.
     - Screen Saver Token Removal (`tokenRemovalAction = 0`)
     - Automatic Login (Disabled)
   - **AD Binding**: Checks `dsconfigad` for Directory Domain binding.
+  - **Entra ID (Platform SSO)**: Checks `app-sso` status to verify if the device is joined to Entra ID via Platform SSO.
   - **JAMF**: Reports the configured JAMF JSS URL.
 
 ### Windows Specific Checks
@@ -205,6 +207,7 @@ To create a release build (executable/app bundle):
 - **"Failed to run dsregcmd" (Windows)**: Ensure you are running the application with appropriate permissions, although standard user rights should suffice for status reads.
 - **"Missing Personal Recovery Key" (macOS)**: This check attempts to escalate privileges using `osascript`. If you deny the admin prompt, the check will skip or fail.
 - **SSL Pinning Failures**: Ensure you are not behind a corporate proxy that performs SSL termination/inspection without the appropriate root CA, or that the `show.gethypr.com` certificate has not rotated to a key not in the pinning list.
+- **"DC Trust Verification Failed" (Windows)**: This check uses the `USERDNSDOMAIN` environment variable. Ensure this variable is present and valid. If the machine is not domain-joined or the variable is missing, the check will skip or fail.
 
 ### Windows Troubleshooting
 
