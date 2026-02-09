@@ -195,6 +195,25 @@ class EnvironmentCheck extends Check {
       } catch (e) {
         results.add('❌ AD Check Failed: $e');
       }
+
+      // --- Entra ID (Platform SSO) ---
+      try {
+        final ssoRes = await Cmd.run('app-sso', ['platform', '-s']);
+        if (ssoRes.exitCode == 0) {
+          final ssoOut = ssoRes.stdout.toString().trim();
+          // Check for valid configuration indicators
+          if (ssoOut.contains('url') || ssoOut.contains('accountIdentifier')) {
+            results.add('✅ Entra ID: Joined');
+          } else {
+            results.add('ℹ️ Entra ID: Not Joined');
+          }
+        } else {
+          // If command fails or returns non-zero, assume not joined or not supported
+          results.add('ℹ️ Entra ID: Not Joined (or check failed)');
+        }
+      } catch (e) {
+        results.add('⚠️ Entra ID Check Error: $e');
+      }
     } else if (Platform.isWindows) {
       final result = await Cmd.run('wmic', [
         'computersystem',

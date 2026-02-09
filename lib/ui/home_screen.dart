@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:file_selector/file_selector.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../checks/check.dart';
 import '../ui/widgets/check_item.dart';
@@ -66,8 +67,11 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _exportReport() async {
+    final packageInfo = await PackageInfo.fromPlatform();
+
     final buffer = StringBuffer();
     buffer.writeln('HYPR Readiness Tool - Scan Report');
+    buffer.writeln('Version: ${packageInfo.version}');
     buffer.writeln('Date: ${DateTime.now()}');
     buffer.writeln(
       'OS: ${Platform.operatingSystem} ${Platform.operatingSystemVersion}',
