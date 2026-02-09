@@ -33,6 +33,38 @@ class EnvironmentCheck extends Check {
         'Unknown';
     results.add('ℹ️ User: $username');
 
+    // --- Admin Privilege Check ---
+    bool isAdmin = false;
+    try {
+      if (Platform.isMacOS) {
+        // "dseditgroup -o checkmember -m <username> admin" returns 0 if member, 1 if not.
+        final adminCheck = await Cmd.run('dseditgroup', [
+          '-o',
+          'checkmember',
+          '-m',
+          username,
+          'admin',
+        ]);
+        if (adminCheck.exitCode == 0) {
+          isAdmin = true;
+        }
+      } else if (Platform.isWindows) {
+        // "net session" requires admin privileges to run. returns 0 if admin, 5 (Access Denied) if not.
+        final netSession = await Cmd.run('net', ['session']);
+        if (netSession.exitCode == 0) {
+          isAdmin = true;
+        }
+      }
+    } catch (e) {
+      debugPrint('Admin check error: $e');
+    }
+
+    if (isAdmin) {
+      results.add('✅ User is Administrator');
+    } else {
+      results.add('⚠️ User is NOT an Administrator');
+    }
+
     if (Platform.isMacOS) {
       // --- FileVault Checks ---
       // 1. Status

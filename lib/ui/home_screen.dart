@@ -64,6 +64,10 @@ class _HomeScreenState extends State<HomeScreen> {
       _scanning = false;
       _statusMessage = 'Scan complete.';
     });
+
+    if (mounted) {
+      await _showScanSummaryDialog();
+    }
   }
 
   Future<void> _exportReport() async {
@@ -78,6 +82,29 @@ class _HomeScreenState extends State<HomeScreen> {
     );
     // Include target URL in report
     buffer.writeln('Target URL: ${AppConfig().targetUrl}');
+    buffer.writeln('--------------------------------------------------');
+
+    // Summary Section
+    int passed = 0;
+    int failed = 0;
+    int warnings = 0;
+    int manual = 0;
+
+    for (var result in _results.values) {
+      if (result.status == CheckStatus.pass)
+        passed++;
+      else if (result.status == CheckStatus.fail)
+        failed++;
+      else if (result.status == CheckStatus.warning)
+        warnings++;
+      else
+        manual++;
+    }
+
+    buffer.writeln(
+      'Scan Summary: $passed Passed, $failed Failed, $warnings Warnings, $manual Manual Checks',
+    );
+    buffer.writeln('');
     buffer.writeln('--------------------------------------------------');
     buffer.writeln('');
 
@@ -509,6 +536,96 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             );
           },
+        );
+      },
+    );
+  }
+
+  Future<void> _showScanSummaryDialog() async {
+    // 1. Sort results: Fail > Manual/Warning > Pass
+    final sortedChecks = <Check>[];
+    final failures = <Check>[];
+    final warnings = <Check>[];
+    final passes = <Check>[];
+
+    for (var check in _checks) {
+      if (!_results.containsKey(check.id)) continue;
+      final status = _results[check.id]!.status;
+      if (status == CheckStatus.fail) {
+        failures.add(check);
+      } else if (status == CheckStatus.warning ||
+          status == CheckStatus.manual) {
+        warnings.add(check);
+      } else {
+        passes.add(check);
+      }
+    }
+
+    sortedChecks.addAll(failures);
+    sortedChecks.addAll(warnings);
+    sortedChecks.addAll(passes);
+
+    await showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Scan Summary'),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: sortedChecks.length,
+              separatorBuilder: (context, index) => const Divider(),
+              itemBuilder: (context, index) {
+                final check = sortedChecks[index];
+                final result = _results[check.id]!;
+                Color statusColor;
+                IconData statusIcon;
+
+                switch (result.status) {
+                  case CheckStatus.pass:
+                    statusColor = Colors.green;
+                    statusIcon = Icons.check_circle;
+                    break;
+                  case CheckStatus.fail:
+                    statusColor = Colors.red;
+                    statusIcon = Icons.error;
+                    break;
+                  case CheckStatus.manual:
+                    statusColor = Colors.blue;
+                    statusIcon = Icons.info;
+                    break;
+                  case CheckStatus.warning:
+                    statusColor = Colors.orange;
+                    statusIcon = Icons.warning;
+                    break;
+                }
+
+                return ListTile(
+                  leading: Icon(statusIcon, color: statusColor),
+                  title: Text(
+                    check.title,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text(result.message),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+            FilledButton.icon(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _exportReport();
+              },
+              icon: const Icon(Icons.download),
+              label: const Text('Export Report'),
+            ),
+          ],
         );
       },
     );
