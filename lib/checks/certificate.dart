@@ -273,7 +273,7 @@ class CertificateTemplateCheck extends Check {
         return CheckResult(
           status: CheckStatus.fail,
           message:
-              'Could not parse Request ID from ADCS response. Connectivity OK.\nResponse Snippet: $snippet',
+              'Username or password was incorrect.\nResponse Snippet: $snippet',
         );
       }
 
