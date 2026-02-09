@@ -205,3 +205,9 @@ To create a release build (executable/app bundle):
 - **"Failed to run dsregcmd" (Windows)**: Ensure you are running the application with appropriate permissions, although standard user rights should suffice for status reads.
 - **"Missing Personal Recovery Key" (macOS)**: This check attempts to escalate privileges using `osascript`. If you deny the admin prompt, the check will skip or fail.
 - **SSL Pinning Failures**: Ensure you are not behind a corporate proxy that performs SSL termination/inspection without the appropriate root CA, or that the `show.gethypr.com` certificate has not rotated to a key not in the pinning list.
+
+### Windows Troubleshooting
+
+Most errors when running the app on Windows are related to permissions. Ensure you are running the application with appropriate permissions, although standard user rights should suffice for most checks. If you are seeing errors related to running the app, try running the application as an administrator.
+
+![Non-Admin Results](./docs/images/ran_non-admin.png) ![Admin Results](./docs/images/ran_admin.png)
