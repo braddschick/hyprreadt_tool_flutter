@@ -41,11 +41,11 @@ codesign -dv --verbose=4 "build/macos/Build/Products/Release/HyprReady.app"
 
 
 # Zip the artifact
-ARTIFACT_NAME="hyprready-${TAG}-${ARCH}.zip"
-echo "Zipping artifact to $ARTIFACT_NAME..."
+ARTIFACT_NAME="hyprready-${TAG}-${ARCH}.app"
+echo "Adding artifact to $ARTIFACT_NAME..."
+mkdir -p releases/${TAG}
 cd build/macos/Build/Products/Release
-zip -r "$ARTIFACT_NAME" HyprReady.app
-mv "$ARTIFACT_NAME" ../../../../../
+mv "$ARTIFACT_NAME" ../../../../../releases/${TAG}
 cd - > /dev/null
 
 echo "Artifact created: $ARTIFACT_NAME"
