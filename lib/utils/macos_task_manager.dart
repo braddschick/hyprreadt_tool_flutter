@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'task_operation_result.dart';
+import 'logger.dart';
 
 class MacOSTaskManager {
   static const String label = 'com.hypr.hyprready.daemon';
@@ -121,7 +122,7 @@ class MacOSTaskManager {
 
       final scriptCommands = commands.replaceAll('"', '\\"');
 
-      print('Requesting privileges to install daemon...');
+      log.i('Requesting privileges to install daemon...');
 
       final result = await Process.run('osascript', [
         '-e',
@@ -129,19 +130,19 @@ class MacOSTaskManager {
       ]);
 
       if (result.exitCode == 0) {
-        print('SUCCESS: Daemon installed and loaded.');
+        log.i('SUCCESS: Daemon installed and loaded.');
         return TaskOperationResult.success(
           'Daemon installed and loaded successfully.',
         );
       } else {
-        print('FAILURE: ${result.stderr}');
+        log.e('FAILURE: ${result.stderr}');
         return TaskOperationResult.failure(
           'Failed to install daemon via osascript.',
           result.stderr,
         );
       }
     } catch (e) {
-      print('EXCEPTION: $e');
+      log.e('EXCEPTION: $e');
       return TaskOperationResult.failure(
         'Exception during daemon installation.',
         e.toString(),
@@ -178,7 +179,7 @@ class MacOSTaskManager {
         );
       }
     } catch (e) {
-      print('EXCEPTION: $e');
+      log.e('EXCEPTION: $e');
       return TaskOperationResult.failure(
         'Exception during daemon removal.',
         e.toString(),

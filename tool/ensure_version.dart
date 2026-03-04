@@ -3,7 +3,7 @@ import 'dart:io';
 void main() {
   final pubspecFile = File('pubspec.yaml');
   if (!pubspecFile.existsSync()) {
-    print('Error: pubspec.yaml not found.');
+    stderr.writeln('Error: pubspec.yaml not found.');
     exit(1);
   }
 
@@ -14,7 +14,7 @@ void main() {
   ).firstMatch(content);
 
   if (versionMatch == null) {
-    print('Error: Could not find version in pubspec.yaml.');
+    stderr.writeln('Error: Could not find version in pubspec.yaml.');
     exit(1);
   }
 
@@ -24,13 +24,13 @@ void main() {
   );
 
   if (majorVersion != currentYearLastTwoDigits) {
-    print(
+    stderr.writeln(
       'Error: Major version ($majorVersion) does not match the last two digits of the current year ($currentYearLastTwoDigits).',
     );
     exit(1);
   }
 
-  print(
+  stdout.writeln(
     'Success: Version $majorVersion.x.x matches year 20$currentYearLastTwoDigits.',
   );
 }

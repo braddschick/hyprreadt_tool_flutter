@@ -77,13 +77,6 @@ class WindowsSecurityCheck extends Check {
       r'0x[0-9a-fA-F]+',
     );
 
-    final fidoAuthFuture = runRegCheck(
-      'FIDO Authentication',
-      r'HKEY_LOCAL_MACHINE\SOFTWARE\policies\Microsoft\FIDO',
-      'EnableFIDODeviceLogon',
-      r'0x1\b',
-    );
-
     // 3. DC Trust
     Future<String> runDcTrust() async {
       final userDnsDomain = Platform.environment['USERDNSDOMAIN'];
@@ -120,7 +113,6 @@ class WindowsSecurityCheck extends Check {
       scRemoveFuture,
       scForceFuture,
       cachedCredsFuture,
-      fidoAuthFuture,
       dcTrustFuture,
     ]);
 
@@ -128,8 +120,7 @@ class WindowsSecurityCheck extends Check {
     final scRemoveResult = resultsList[1] as String;
     final scForceResult = resultsList[2] as String;
     final cachedCredsResult = resultsList[3] as String;
-    final fidoAuthResult = resultsList[4] as String;
-    final dcTrustResult = resultsList[5] as String;
+    final dcTrustResult = resultsList[4] as String;
 
     // --- Process dsregcmd Results ---
     if (dsResultOrError is DsRegStatus) {
@@ -146,18 +137,6 @@ class WindowsSecurityCheck extends Check {
       results.add(
         'Enterprise SSO PRT: ${status.isEnterprisePrt ? "YES" : "NO"}',
       );
-      if (status.isOnPremTgt) {
-        results.add('✅ OnPremTgt: YES');
-      } else {
-        results.add('❌ OnPremTgt: NO');
-        failedCount++;
-      }
-      if (status.isCloudTgt) {
-        results.add('✅ CloudTgt: YES');
-      } else {
-        results.add('❌ CloudTgt: NO');
-        failedCount++;
-      }
     } else {
       results.add('❌ Failed to run dsregcmd: $dsResultOrError');
       failedCount++;
@@ -167,7 +146,7 @@ class WindowsSecurityCheck extends Check {
     results.add(scRemoveResult);
     results.add(scForceResult);
     results.add(cachedCredsResult);
-    results.add(fidoAuthResult);
+
     results.add(dcTrustResult);
     if (dcTrustResult.contains('❌') || dcTrustResult.contains('Failed')) {
       // Only increment fail count for explicit failures, skipping isn't a fail

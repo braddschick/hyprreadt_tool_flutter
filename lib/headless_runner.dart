@@ -5,6 +5,7 @@ import 'package:path_provider/path_provider.dart';
 import 'checks/check.dart';
 import 'checks/check_registry.dart';
 import 'config/app_config.dart';
+import 'utils/logger.dart';
 
 class HeadlessRunner {
   static Future<void> run(List<String> args) async {
@@ -42,24 +43,24 @@ class HeadlessRunner {
       try {
         await logFile.parent.create(recursive: true);
       } catch (e) {
-        print('Failed to create log directory: $e');
+        log.e('Failed to create log directory: $e');
         // Fallback to local
         logPath = 'hyprready_headless_fallback.log';
       }
     }
 
     final buffer = StringBuffer();
-    void log(String message) {
+    void customLog(String message) {
       final msg = '[${DateTime.now()}] $message';
-      print(msg);
+      log.i(msg);
       buffer.writeln(msg);
     }
 
-    log('Starting Headless Check...');
-    log('Arguments: $args');
-    log('Target URL: ${AppConfig().targetUrl}');
+    customLog('Starting Headless Check...');
+    customLog('Arguments: $args');
+    customLog('Target URL: ${AppConfig().targetUrl}');
     if (AppConfig().adcsServer != null) {
-      log('ADCS Configured: ${AppConfig().adcsServer}');
+      customLog('ADCS Configured: ${AppConfig().adcsServer}');
     }
 
     // 3. Run Checks
@@ -73,43 +74,43 @@ class HeadlessRunner {
         continue;
       }
 
-      log('Running Check: ${check.title}...');
+      log.i('Running Check: ${check.title}...');
       try {
         final result = await check.execute(); // No context
         switch (result.status) {
           case CheckStatus.pass:
-            log('PASS: ${check.title} - ${result.message}');
+            customLog('PASS: ${check.title} - ${result.message}');
             passCount++;
             break;
           case CheckStatus.fail:
-            log('FAIL: ${check.title} - ${result.message}');
+            customLog('FAIL: ${check.title} - ${result.message}');
             failCount++;
             break;
           case CheckStatus.warning:
-            log('WARN: ${check.title} - ${result.message}');
+            customLog('WARN: ${check.title} - ${result.message}');
             warnCount++;
             break;
           case CheckStatus.manual:
-            log('SKIP/MANUAL: ${check.title} - ${result.message}');
+            customLog('SKIP/MANUAL: ${check.title} - ${result.message}');
             break;
         }
       } catch (e) {
-        log('ERROR: ${check.title} threw exception: $e');
+        customLog('ERROR: ${check.title} threw exception: $e');
         failCount++;
       }
     }
 
-    log('--------------------------------------------------');
-    log('Summary: PASS=$passCount, FAIL=$failCount, WARN=$warnCount');
-    log('Headless Check Complete.');
+    customLog('--------------------------------------------------');
+    customLog('Summary: PASS=$passCount, FAIL=$failCount, WARN=$warnCount');
+    customLog('Headless Check Complete.');
 
     // 4. Write Log
     try {
       await logFile.writeAsString(buffer.toString(), mode: FileMode.append);
-      print('Log written to: $logPath');
+      log.i('Log written to: $logPath');
     } catch (e) {
-      print('Failed to write log file: $e');
-      print('Log Content:\n$buffer');
+      log.e('Failed to write log file: $e');
+      log.e('Log Content:\n$buffer');
     }
 
     exit(failCount > 0 ? 1 : 0);

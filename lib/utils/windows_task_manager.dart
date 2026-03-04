@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:convert';
 import 'package:path/path.dart' as p;
 import 'task_operation_result.dart';
+import 'logger.dart';
 
 class WindowsTaskManager {
   static const String taskName = 'HYPRReady_Boot_Diagnostic';
@@ -25,7 +26,7 @@ class WindowsTaskManager {
       return result.exitCode == 0 &&
           result.stdout.toString().contains(taskName);
     } catch (e) {
-      print('Failed to check task status: $e');
+      log.e('Failed to check task status: $e');
       return false;
     }
   }
@@ -79,7 +80,7 @@ class WindowsTaskManager {
     }
 
     try {
-      print('Starting Task Registration...');
+      log.i('Starting Task Registration...');
 
       // 2. Create/Update Config File
       final exePath = Platform.resolvedExecutable;
@@ -96,7 +97,7 @@ class WindowsTaskManager {
       await configFile.writeAsString(
         const JsonEncoder.withIndent('  ').convert(config),
       );
-      print('Configuration saved to: $configPath');
+      log.i('Configuration saved to: $configPath');
 
       // 3. Ensure Log Directory Exists
       final logDir = p.dirname(logPath);
@@ -128,25 +129,25 @@ if (\$delaySeconds -gt 0) {
 Register-ScheduledTask -TaskName \$taskName -Action \$action -Trigger \$trigger -Principal \$principal -Force
 ''';
 
-      print('Executing PowerShell to register task...');
+      log.i('Executing PowerShell to register task...');
       final result = await Process.run('powershell', ['-Command', psScript]);
 
       if (result.exitCode == 0) {
-        print(result.stdout);
-        print('SUCCESS: Task "$taskName" registered successfully.');
+        log.i(result.stdout);
+        log.i('SUCCESS: Task "$taskName" registered successfully.');
         return TaskOperationResult.success(
           'Task "$taskName" registered successfully.',
         );
       } else {
-        print('FAILURE: PowerShell returned exit code ${result.exitCode}');
-        print('STDERR: ${result.stderr}');
+        log.w('FAILURE: PowerShell returned exit code ${result.exitCode}');
+        log.e('STDERR: ${result.stderr}');
         return TaskOperationResult.failure(
           'Failed to register task via PowerShell.',
           result.stderr,
         );
       }
     } catch (e) {
-      print('EXCEPTION: Failed to register task: $e');
+      log.e('EXCEPTION: Failed to register task: $e');
       return TaskOperationResult.failure(
         'Exception during task registration.',
         e.toString(),
@@ -163,7 +164,7 @@ Register-ScheduledTask -TaskName \$taskName -Action \$action -Trigger \$trigger 
     }
 
     try {
-      print('Removing Task "$taskName"...');
+      log.i('Removing Task "$taskName"...');
 
       final result = await Process.run('powershell', [
         '-Command',
@@ -171,28 +172,28 @@ Register-ScheduledTask -TaskName \$taskName -Action \$action -Trigger \$trigger 
       ]);
 
       if (result.exitCode == 0) {
-        print('SUCCESS: Task "$taskName" removed.');
+        log.i('SUCCESS: Task "$taskName" removed.');
         return TaskOperationResult.success('Task "$taskName" removed.');
       } else {
         // Check if error is simply that the task doesn't exist
         if (result.stderr.toString().contains(
           'No MSFT_ScheduledTask objects found',
         )) {
-          print('Task "$taskName" was not found (nothing to remove).');
+          log.i('Task "$taskName" was not found (nothing to remove).');
           return TaskOperationResult.success(
             'Task was not found (nothing to remove).',
           );
         }
 
-        print('FAILURE: Failed to remove task.');
-        print('STDERR: ${result.stderr}');
+        log.w('FAILURE: Failed to remove task.');
+        log.e('STDERR: ${result.stderr}');
         return TaskOperationResult.failure(
           'Failed to remove task.',
           result.stderr,
         );
       }
     } catch (e) {
-      print('EXCEPTION: Failed to remove task: $e');
+      log.e('EXCEPTION: Failed to remove task: $e');
       return TaskOperationResult.failure(
         'Exception during task removal.',
         e.toString(),
