@@ -7,6 +7,8 @@ class DsRegStatus {
   final bool isEnterpriseJoined;
   final bool isAzureAdPrt;
   final bool isEnterprisePrt;
+  final bool isOnPremTgt;
+  final bool isCloudTgt;
 
   DsRegStatus({
     required this.deviceName,
@@ -15,6 +17,8 @@ class DsRegStatus {
     required this.isEnterpriseJoined,
     required this.isAzureAdPrt,
     required this.isEnterprisePrt,
+    required this.isOnPremTgt,
+    required this.isCloudTgt,
   });
 
   factory DsRegStatus.fromOutput(String output) {
@@ -33,6 +37,8 @@ class DsRegStatus {
       isEnterpriseJoined: isYes(extract(r'EnterpriseJoined\s*:\s*(YES|NO)')),
       isAzureAdPrt: isYes(extract(r'AzureAdPrt\s*:\s*(YES|NO)')),
       isEnterprisePrt: isYes(extract(r'EnterprisePrt\s*:\s*(YES|NO)')),
+      isOnPremTgt: isYes(extract(r'OnPremTgt\s*:\s*(YES|NO)')),
+      isCloudTgt: isYes(extract(r'CloudTgt\s*:\s*(YES|NO)')),
     );
   }
 }

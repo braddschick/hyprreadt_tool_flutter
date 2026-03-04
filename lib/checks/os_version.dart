@@ -1,11 +1,23 @@
 import 'package:flutter/material.dart';
 
+import 'package:flutter/foundation.dart'; // for visibleForTesting
 import 'dart:io';
 
 import '../utils/cmd.dart';
 import 'check.dart';
 
+typedef CmdRunner =
+    Future<CmdResult> Function(
+      String executable,
+      List<String> arguments, {
+      bool runInShell,
+    });
+
 class OSVersionCheck extends Check {
+  final CmdRunner _cmdRunner;
+
+  OSVersionCheck({CmdRunner? cmdRunner}) : _cmdRunner = cmdRunner ?? Cmd.run;
+
   @override
   String get id => 'OS_VERSION_01';
 
@@ -24,9 +36,9 @@ class OSVersionCheck extends Check {
   @override
   Future<CheckResult> execute([BuildContext? context]) async {
     if (Platform.isMacOS) {
-      return _checkMacOS();
+      return checkMacOS();
     } else if (Platform.isWindows) {
-      return _checkWindows();
+      return checkWindows();
     } else {
       return CheckResult(
         status: CheckStatus.fail,
@@ -35,8 +47,9 @@ class OSVersionCheck extends Check {
     }
   }
 
-  Future<CheckResult> _checkMacOS() async {
-    final result = await Cmd.run('sw_vers', ['-productVersion']);
+  @visibleForTesting
+  Future<CheckResult> checkMacOS() async {
+    final result = await _cmdRunner('sw_vers', ['-productVersion']);
     if (result.exitCode != 0) {
       return CheckResult(
         status: CheckStatus.fail,
@@ -99,9 +112,10 @@ class OSVersionCheck extends Check {
     }
   }
 
-  Future<CheckResult> _checkWindows() async {
+  @visibleForTesting
+  Future<CheckResult> checkWindows() async {
     // WMI command to get OS Caption and Version
-    final result = await Cmd.run('wmic', [
+    final result = await _cmdRunner('wmic', [
       'os',
       'get',
       'Caption,Version',
@@ -140,32 +154,36 @@ class OSVersionCheck extends Check {
     final isWindows10 = caption.contains('Windows 10');
     final isWindows11 = caption.contains('Windows 11');
     final isPro = caption.contains('Pro');
+    final isEnterprise = caption.contains('Enterprise');
 
-    if (!isPro) {
+    if (!isPro && !isEnterprise) {
       return CheckResult(
         status: CheckStatus.fail,
-        message: 'Windows Pro edition required. Detected: $caption',
+        message:
+            'Windows Pro or Enterprise edition required. Detected: $caption',
       );
     }
 
     if (isWindows10) {
       return CheckResult(
         status: CheckStatus.pass,
-        message: 'Windows 10 Pro detected ($version)',
+        message:
+            'Windows 10 ${isPro ? "Pro" : "Enterprise"} detected ($version)',
       );
     }
 
     if (isWindows11) {
       return CheckResult(
         status: CheckStatus.pass,
-        message: 'Windows 11 Pro detected ($version)',
+        message:
+            'Windows 11 ${isPro ? "Pro" : "Enterprise"} detected ($version)',
       );
     }
 
     return CheckResult(
       status: CheckStatus.fail,
       message:
-          'Unsupported Windows version: $caption. Required: Windows 10 Pro or Windows 11 Pro',
+          'Unsupported Windows version: $caption. Required: Windows 10/11 Pro or Enterprise',
     );
   }
 }
