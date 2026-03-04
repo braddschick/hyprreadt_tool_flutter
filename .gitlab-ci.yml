@@ -1,0 +1,37 @@
+stages:
+  - build
+
+variables:
+  FLUTTER_VERSION: "3.24.0" # Update to the version you want to use. You can also leave this empty if the runner handles the version.
+
+# --- macOS ARM (Apple M1/M2) Build ---
+build_macos_arm:
+  stage: build
+  tags:
+    - macos-arm # Targeted to the Terraform-provisioned Mac M-Series runner
+  script:
+    - echo "Building for macOS ARM..."
+    - flutter clean
+    - flutter pub get
+    - flutter build macos --release
+  artifacts:
+    name: "hyprready-macos-arm"
+    paths:
+      - build/macos/Build/Products/Release/hyprready.app
+    expire_in: 1 week
+
+# --- Windows Build ---
+build_windows:
+  stage: build
+  tags:
+    - windows-builder # Targeted to the Terraform-provisioned Windows runner
+  script:
+    - echo "Building for Windows..."
+    - flutter clean
+    - flutter pub get
+    - flutter build windows --release
+  artifacts:
+    name: "hyprready-windows"
+    paths:
+      - build/windows/x64/runner/Release/
+    expire_in: 1 week
