@@ -30,6 +30,10 @@ xcodebuild -license accept
 # 4. Install Flutter
 cd /opt
 curl -Lo flutter_macos_arm64.zip "https://storage.googleapis.com/flutter_infra_release/releases/stable/macos/flutter_macos_arm64_3.24.0-stable.zip"
+EXPECTED_FLUTTER_HASH="72eb929a0eb2456b3e7f45b597fe29b610c4417637cc9edecfc3bda3fef04da2"
+
+echo "$EXPECTED_FLUTTER_HASH  flutter_macos_arm64.zip" | shasum -a 256 -c - || { echo "Flutter hash mismatch!"; exit 1; }
+
 unzip flutter_macos_arm64.zip
 rm flutter_macos_arm64.zip
 export PATH="$PATH:/opt/flutter/bin"
@@ -40,7 +44,11 @@ flutter config --enable-macos-desktop
 flutter precache --macos
 
 # 5. Install GitLab Runner
-sudo curl --output /usr/local/bin/gitlab-runner "https://gitlab-runner-downloads.s3.amazonaws.com/latest/binaries/gitlab-runner-darwin-arm64"
+sudo curl --output /usr/local/bin/gitlab-runner "https://gitlab-runner-downloads.s3.amazonaws.com/v17.3.1/binaries/gitlab-runner-darwin-arm64"
+EXPECTED_RUNNER_HASH="ebc5f83bbbf4fcf8be052848cdddf391fa6ecff59b6fe9b50b29c9ef4db5d4ad"
+
+echo "$EXPECTED_RUNNER_HASH  /usr/local/bin/gitlab-runner" | shasum -a 256 -c - || { echo "GitLab Runner hash mismatch!"; exit 1; }
+
 sudo chmod +x /usr/local/bin/gitlab-runner
 
 # Register the Runner

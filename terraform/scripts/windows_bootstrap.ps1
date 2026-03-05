@@ -24,7 +24,17 @@ Write-Log "Git and Build Tools installed."
 Write-Log "Downloading Flutter SDK..."
 $FlutterZipUrl = "https://storage.googleapis.com/flutter_infra_release/releases/stable/windows/flutter_windows_3.24.0-stable.zip" # Using a stable version, update as needed
 $FlutterZipPath = "C:\flutter_sdk.zip"
+$ExpectedFlutterHash = "3235bba436fc79261aae8d14fe810f6eacb6dfcce8e0df6ab5dcad3eec77e1bf" # SHA256 for 3.24.0 Windows
+
 Invoke-WebRequest -Uri $FlutterZipUrl -OutFile $FlutterZipPath
+
+Write-Log "Verifying Flutter SDK hash..."
+$FlutterHash = (Get-FileHash $FlutterZipPath -Algorithm SHA256).Hash
+if ($FlutterHash -ne $ExpectedFlutterHash) {
+    Write-Log "ERROR: Flutter SDK hash mismatch! Expected $ExpectedFlutterHash but got $FlutterHash"
+    exit 1
+}
+
 Expand-Archive -Path $FlutterZipPath -DestinationPath "C:\src"
 Remove-Item -Path $FlutterZipPath
 [System.Environment]::SetEnvironmentVariable("Path", $env:Path + ";C:\src\flutter\bin", [System.EnvironmentVariableTarget]::Machine)
@@ -34,7 +44,18 @@ Write-Log "Flutter SDK installed."
 # 4. Install and Configure GitLab Runner
 Write-Log "Downloading GitLab Runner..."
 New-Item -Path 'C:\GitLab-Runner' -ItemType Directory
-Invoke-WebRequest -Uri "https://gitlab-runner-downloads.s3.amazonaws.com/latest/binaries/gitlab-runner-windows-amd64.exe" -OutFile "C:\GitLab-Runner\gitlab-runner.exe"
+$RunnerUrl = "https://gitlab-runner-downloads.s3.amazonaws.com/v17.3.1/binaries/gitlab-runner-windows-amd64.exe"
+$RunnerPath = "C:\GitLab-Runner\gitlab-runner.exe"
+$ExpectedRunnerHash = "9db88b0a9ebd69a3182b81d4b68c5b0577ceb83e35ba7b30f4cfd762040b2a8d" # v17.3.1 Windows AMD64
+
+Invoke-WebRequest -Uri $RunnerUrl -OutFile $RunnerPath
+
+Write-Log "Verifying GitLab Runner hash..."
+$RunnerHash = (Get-FileHash $RunnerPath -Algorithm SHA256).Hash
+if ($RunnerHash -ne $ExpectedRunnerHash) {
+    Write-Log "ERROR: GitLab Runner hash mismatch! Expected $ExpectedRunnerHash but got $RunnerHash"
+    exit 1
+}
 
 Write-Log "Registering GitLab Runner..."
 C:\GitLab-Runner\gitlab-runner.exe register `

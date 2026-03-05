@@ -11,11 +11,11 @@ import 'check.dart';
 import '../config/app_config.dart';
 
 class NetworkCheck extends Check {
-  // We use the dynamic URL from config.
-  // static const String _host = 'show.gethypr.com';
-  // static const String _host = 'show.gethypr.com';
   String get _host {
-    String url = AppConfig().targetUrl;
+    String? url = AppConfig().targetUrl;
+    if (url == null) {
+      url = AppConfig.defaultTargetUrl;
+    }
     // Strip scheme if present to ensure we have a raw hostname for SecureSocket
     if (url.startsWith('https://') || url.startsWith('http://')) {
       try {
@@ -90,8 +90,12 @@ class NetworkCheck extends Check {
       final digest = sha256.convert(spkiBytes);
       final hashBase64 = base64.encode(digest.bytes);
 
+      // Check both hardcoded and configured valid hashes
+      final configHashes = AppConfig().validPinningHashes ?? [];
+      final validHashes = [..._validPinningHashes, ...configHashes];
+
       // Verify
-      if (_validPinningHashes.contains(hashBase64)) {
+      if (validHashes.contains(hashBase64)) {
         return CheckResult(
           status: CheckStatus.pass,
           message:

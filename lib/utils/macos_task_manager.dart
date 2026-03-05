@@ -106,28 +106,38 @@ class MacOSTaskManager {
       await tempPlist.writeAsString(plistContent);
 
       // 4. Move to /Library/LaunchDaemons using sudo/osascript
-      // Commands:
-      // cp /tmp/... /Library/LaunchDaemons/...
-      // chown root:wheel ...
-      // chmod 644 ...
-      // launchctl load ...
+      // Create a temporary install script to avoid shell injection vulnerabilities
+      // with complex osascript string escaping.
+      final installScriptPath = p.join(
+        tempDir.path,
+        'hypr_daemon_install_${DateTime.now().millisecondsSinceEpoch}.sh',
+      );
+      final installScriptFile = File(installScriptPath);
 
-      final commands = [
-        'cp "${tempPlist.path}" "$plistPath"',
-        'chown root:wheel "$plistPath"',
-        'chmod 644 "$plistPath"',
-        'launchctl unload "$plistPath" || true', // unload if exists
-        'launchctl load "$plistPath"',
-      ].join(' && ');
-
-      final scriptCommands = commands.replaceAll('"', '\\"');
+      final installScriptContent =
+          '''
+#!/bin/bash
+cp "${tempPlist.path}" "$plistPath"
+chown root:wheel "$plistPath"
+chmod 644 "$plistPath"
+launchctl unload "$plistPath" || true
+launchctl load "$plistPath"
+''';
+      await installScriptFile.writeAsString(installScriptContent);
+      // Ensure the script is executable by the current user before sudo runs it
+      await Process.run('chmod', ['+x', installScriptPath]);
 
       log.i('Requesting privileges to install daemon...');
 
       final result = await Process.run('osascript', [
         '-e',
-        'do shell script "$scriptCommands" with administrator privileges',
+        'do shell script "$installScriptPath" with administrator privileges',
       ]);
+
+      // Cleanup temp script
+      try {
+        if (await installScriptFile.exists()) await installScriptFile.delete();
+      } catch (_) {}
 
       if (result.exitCode == 0) {
         log.i('SUCCESS: Daemon installed and loaded.');
@@ -158,17 +168,31 @@ class MacOSTaskManager {
     }
 
     try {
-      final commands = [
-        'launchctl unload "$plistPath" || true',
-        'rm -f "$plistPath"',
-      ].join(' && ');
+      final tempDir = Directory.systemTemp;
+      final removeScriptPath = p.join(
+        tempDir.path,
+        'hypr_daemon_remove_${DateTime.now().millisecondsSinceEpoch}.sh',
+      );
+      final removeScriptFile = File(removeScriptPath);
 
-      final scriptCommands = commands.replaceAll('"', '\\"');
+      final removeScriptContent =
+          '''
+#!/bin/bash
+launchctl unload "$plistPath" || true
+rm -f "$plistPath"
+''';
+      await removeScriptFile.writeAsString(removeScriptContent);
+      await Process.run('chmod', ['+x', removeScriptPath]);
 
       final result = await Process.run('osascript', [
         '-e',
-        'do shell script "$scriptCommands" with administrator privileges',
+        'do shell script "$removeScriptPath" with administrator privileges',
       ]);
+
+      // Cleanup temp script
+      try {
+        if (await removeScriptFile.exists()) await removeScriptFile.delete();
+      } catch (_) {}
 
       if (result.exitCode == 0) {
         return TaskOperationResult.success('Daemon removed successfully.');

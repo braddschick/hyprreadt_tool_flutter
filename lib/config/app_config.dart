@@ -21,6 +21,7 @@ class AppConfig {
   // File-based config
   String? _adcsServer;
   String? _certTemplate;
+  List<String>? _validPinningHashes;
 
   Future<void> init() async {
     _prefs = await SharedPreferences.getInstance();
@@ -64,6 +65,9 @@ class AppConfig {
           if (json['adcsServer'] != null) _adcsServer = json['adcsServer'];
           if (json['certTemplate'] != null)
             _certTemplate = json['certTemplate'];
+          if (json['validPinningHashes'] != null) {
+            _validPinningHashes = List<String>.from(json['validPinningHashes']);
+          }
         }
       }
     } catch (e) {
@@ -73,7 +77,7 @@ class AppConfig {
 
   String? _fileTargetUrl;
 
-  String get targetUrl {
+  String? get targetUrl {
     if (_fileTargetUrl != null && _fileTargetUrl!.isNotEmpty) {
       return _fileTargetUrl!;
     }
@@ -82,6 +86,7 @@ class AppConfig {
 
   String? get adcsServer => _adcsServer;
   String? get certTemplate => _certTemplate;
+  List<String>? get validPinningHashes => _validPinningHashes;
 
   Future<void> setTargetUrl(String url) async {
     await _prefs.setString(_keyTargetUrl, url);
