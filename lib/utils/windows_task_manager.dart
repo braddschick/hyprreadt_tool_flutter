@@ -107,30 +107,51 @@ class WindowsTaskManager {
       }
 
       // 4. Register Task via PowerShell
-      final arguments = '--headless --log-file "$logPath"';
+      final arguments = '--headless --log-file "\$logPath"';
 
-      // PowerShell script to execute
-      final psScript =
-          '''
-\$exePath = '${exePath.replaceAll("'", "''")}'
-\$arguments = '$arguments'
-\$taskName = '$taskName'
-\$delaySeconds = $delaySeconds
+      // PowerShell script to execute (using parameters instead of interpolation for safety)
+      final tempDir = Directory.systemTemp;
+      final psScriptPath = p.join(tempDir.path, 'hypr_task_install_\${DateTime.now().millisecondsSinceEpoch}.ps1');
+      final psScriptFile = File(psScriptPath);
 
-\$action = New-ScheduledTaskAction -Execute \$exePath -Argument \$arguments
-\$trigger = New-ScheduledTaskTrigger -AtStartup
+      final psScript = '''
+param (
+    [Parameter(Mandatory=\\$true)][string]\\\$ExePath,
+    [Parameter(Mandatory=\\$true)][string]\\\$LogFile,
+    [string]\\\$TaskName,
+    [int]\\\$DelaySeconds
+)
 
-if (\$delaySeconds -gt 0) {
-    \$trigger.Delay = "PT\${delaySeconds}S"
+\\\$arguments = "--headless --log-file `"\\\$LogFile`""
+
+\\\$action = New-ScheduledTaskAction -Execute \\\$ExePath -Argument \\\$arguments
+\\\$trigger = New-ScheduledTaskTrigger -AtStartup
+
+if (\\\$DelaySeconds -gt 0) {
+    \\\$trigger.Delay = "PT\${DelaySeconds}S"
 }
 
-\$principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+\\\$principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
 
-Register-ScheduledTask -TaskName \$taskName -Action \$action -Trigger \$trigger -Principal \$principal -Force
+Register-ScheduledTask -TaskName \\\$TaskName -Action \\\$action -Trigger \\\$trigger -Principal \\\$principal -Force
 ''';
+      
+      await psScriptFile.writeAsString(psScript);
 
       log.i('Executing PowerShell to register task...');
-      final result = await Process.run('powershell', ['-Command', psScript]);
+      final result = await Process.run('powershell', [
+        '-ExecutionPolicy', 'Bypass',
+        '-File', psScriptPath,
+        '-ExePath', exePath,
+        '-LogFile', logPath,
+        '-TaskName', taskName,
+        '-DelaySeconds', delaySeconds.toString(),
+      ]);
+
+      // Cleanup temp script
+      try {
+        if (await psScriptFile.exists()) await psScriptFile.delete();
+      } catch (_) {}
 
       if (result.exitCode == 0) {
         log.i(result.stdout);
