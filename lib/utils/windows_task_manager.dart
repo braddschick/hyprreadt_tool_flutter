@@ -111,41 +111,50 @@ class WindowsTaskManager {
 
       // PowerShell script to execute (using parameters instead of interpolation for safety)
       final tempDir = Directory.systemTemp;
-      final psScriptPath = p.join(tempDir.path, 'hypr_task_install_\${DateTime.now().millisecondsSinceEpoch}.ps1');
+      final psScriptPath = p.join(
+        tempDir.path,
+        'hypr_task_install_\${DateTime.now().millisecondsSinceEpoch}.ps1',
+      );
       final psScriptFile = File(psScriptPath);
 
-      final psScript = '''
+      final psScript = r'''
 param (
-    [Parameter(Mandatory=\\$true)][string]\\\$ExePath,
-    [Parameter(Mandatory=\\$true)][string]\\\$LogFile,
-    [string]\\\$TaskName,
-    [int]\\\$DelaySeconds
+    [Parameter(Mandatory=$true)][string]$ExePath,
+    [Parameter(Mandatory=$true)][string]$LogFile,
+    [string]$TaskName,
+    [int]$DelaySeconds
 )
 
-\\\$arguments = "--headless --log-file `"\\\$LogFile`""
+$arguments = "--headless --log-file `"$LogFile`""
 
-\\\$action = New-ScheduledTaskAction -Execute \\\$ExePath -Argument \\\$arguments
-\\\$trigger = New-ScheduledTaskTrigger -AtStartup
+$action = New-ScheduledTaskAction -Execute $ExePath -Argument $arguments
+$trigger = New-ScheduledTaskTrigger -AtStartup
 
-if (\\\$DelaySeconds -gt 0) {
-    \\\$trigger.Delay = "PT\${DelaySeconds}S"
+if ($DelaySeconds -gt 0) {
+    $trigger.Delay = "PT${DelaySeconds}S"
 }
 
-\\\$principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+$principal = New-ScheduledTaskPrincipal -UserId "SYSTEM" -LogonType ServiceAccount -RunLevel Highest
 
-Register-ScheduledTask -TaskName \\\$TaskName -Action \\\$action -Trigger \\\$trigger -Principal \\\$principal -Force
+Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Principal $principal -Force
 ''';
-      
+
       await psScriptFile.writeAsString(psScript);
 
       log.i('Executing PowerShell to register task...');
       final result = await Process.run('powershell', [
-        '-ExecutionPolicy', 'Bypass',
-        '-File', psScriptPath,
-        '-ExePath', exePath,
-        '-LogFile', logPath,
-        '-TaskName', taskName,
-        '-DelaySeconds', delaySeconds.toString(),
+        '-ExecutionPolicy',
+        'Bypass',
+        '-File',
+        psScriptPath,
+        '-ExePath',
+        exePath,
+        '-LogFile',
+        logPath,
+        '-TaskName',
+        taskName,
+        '-DelaySeconds',
+        delaySeconds.toString(),
       ]);
 
       // Cleanup temp script

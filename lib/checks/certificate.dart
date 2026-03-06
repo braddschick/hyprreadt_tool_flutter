@@ -186,17 +186,30 @@ class CertificateTemplateCheck extends Check {
     final keyPath = '${tempDir.path}/hypr_temp_$uniqueId.key';
     final csrPath = '${tempDir.path}/hypr_temp_$uniqueId.csr';
     final certPath = '${tempDir.path}/hypr_temp_$uniqueId.cer';
+    final curlConfigPath = '${tempDir.path}/hypr_temp_curl_$uniqueId.config';
 
     Future<void> cleanup() async {
       try {
         if (await File(keyPath).exists()) await File(keyPath).delete();
         if (await File(csrPath).exists()) await File(csrPath).delete();
         if (await File(certPath).exists()) await File(certPath).delete();
+        if (await File(curlConfigPath).exists())
+          await File(curlConfigPath).delete();
       } catch (_) {} // Ignore cleanup errors
     }
 
     try {
-      final cn = username.split('\\').last;
+      // Input sanitization
+      final cleanCn = username
+          .split('\\')
+          .last
+          .replaceAll(RegExp(r'[^a-zA-Z0-9.\-_]'), '');
+
+      // Write credentials to a temporary config file for curl to prevent CLI exposure
+      await File(
+        curlConfigPath,
+      ).writeAsString('user = "$username:$password"\n');
+
       final csrResult = await Cmd.run('openssl', [
         'req',
         '-new',
@@ -208,7 +221,7 @@ class CertificateTemplateCheck extends Check {
         '-out',
         csrPath,
         '-subj',
-        '/CN=HyprReadinessTool_$cn',
+        '/CN=HyprReadinessTool_$cleanCn',
       ]);
 
       if (csrResult.exitCode != 0) {
@@ -221,11 +234,10 @@ class CertificateTemplateCheck extends Check {
       final csrContent = await File(csrPath).readAsString();
 
       final submitResult = await Cmd.run('curl', [
-        '-k', // Insecure
         '-s', // Silent
         '--ntlm',
-        '-u',
-        '$username:$password',
+        '--config',
+        curlConfigPath,
         '-d',
         'Mode=newreq',
         '--data-urlencode', // Encodes the next argument
@@ -281,11 +293,10 @@ class CertificateTemplateCheck extends Check {
 
       // 4. Retrieve Certificate
       final fetchResult = await Cmd.run('curl', [
-        '-k',
         '-s',
         '--ntlm',
-        '-u',
-        '$username:$password',
+        '--config',
+        curlConfigPath,
         '$fetchUrl?ReqID=$reqId&Enc=b64',
       ]);
 

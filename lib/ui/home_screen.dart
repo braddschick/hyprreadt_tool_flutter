@@ -464,13 +464,17 @@ class _HomeScreenState extends State<HomeScreen> {
                                 result = await WindowsTaskManager.register(
                                   logPath: logPathController.text,
                                   delaySeconds: int.parse(delayController.text),
-                                  sslUrl: AppConfig().targetUrl,
+                                  sslUrl:
+                                      AppConfig().targetUrl ??
+                                      'show.gethypr.com',
                                 );
                               } else {
                                 result = await MacOSTaskManager.register(
                                   logPath: logPathController.text,
                                   delaySeconds: int.parse(delayController.text),
-                                  sslUrl: AppConfig().targetUrl,
+                                  sslUrl:
+                                      AppConfig().targetUrl ??
+                                      'show.gethypr.com',
                                 );
                               }
 

@@ -3,7 +3,13 @@ import 'package:hyprready/checks/os_version.dart';
 import 'package:hyprready/utils/cmd.dart';
 import 'package:hyprready/checks/check.dart';
 
+import 'package:shared_preferences/shared_preferences.dart';
+
 void main() {
+  setUpAll(() {
+    SharedPreferences.setMockInitialValues({});
+  });
+
   group('OSVersionCheck Windows', () {
     test('Windows 10 Pro passes', () async {
       final check = OSVersionCheck(
