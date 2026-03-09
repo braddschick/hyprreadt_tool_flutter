@@ -1,0 +1,46 @@
+HYPR Readiness Tool - Scan Report
+Version: 26.2.3
+Date: 2026-03-09 13:35:36.976719
+OS: windows "Windows 10 Pro" 10.0 (Build 22621)
+Target URL: show.gethypr.com
+--------------------------------------------------
+Scan Summary: 6 Passed, 1 Failed, 0 Warnings, 0 Manual Checks
+
+--------------------------------------------------
+
+[PASS] OS Version Compatibility
+Result: Windows 11 Pro detected (10.0.22621)
+
+[FAIL] Secure Element Detection
+Result: Unable to detect TPM via WMI or tpmtool. Ensure TPM is enabled in BIOS.
+
+[PASS] Environment Information
+Result: ℹ️ User: adm-bschick
+✅ User is Administrator
+✅ Domain Joined: lambda.gethypr.com
+
+[PASS] Network Connectivity & SSL Pinning
+Result: Successfully connected to show.gethypr.com and verified SSL pinning (Hash: Eyf4LHdUkuN5SJPZlO8OwetAmP3pNDvv3S/FH1ajZZQ=).
+
+[PASS] Certificate Template Availability
+Result: Template "hyprwin" found with Client Authentication and Smart Card Logon.
+
+[PASS] Windows Security Standards
+Result: ℹ️ Device Name: PC-0X495P93.lambda.gethypr.com
+✅ Domain Joined: YES
+Azure AD Joined: YES
+Enterprise Joined: NO
+Azure SSO PRT: YES
+Enterprise SSO PRT: NO
+✅ Smart Card Removal: Found (Details: 0)
+✅ Smart Card Force Logon: 0x0
+✅ Cached Credential Count: Found (Details: 10)
+✅ DC Trust Verified (LAMBDA.GETHYPR.COM)
+✅ .NET Framework Folder Found
+
+[PASS] Enterprise Passkey
+Result: ✅ OnPremTgt: YES
+✅ CloudTgt: YES
+✅ FIDO Authentication Logon: 0x1
+✅ Security Key Sign-In: 0x1
+
